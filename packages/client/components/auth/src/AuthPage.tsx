@@ -161,18 +161,6 @@ export function AuthPage(props: { children: JSX.Element }) {
                 />
               </LinkWithIcon>
             </NavItems>
-            <Bullet />
-            <NavItems>
-              <a href="https://stoat.chat/about" target="_blank">
-                <Trans>About</Trans>
-              </a>
-              <a href="https://stoat.chat/terms" target="_blank">
-                <Trans>Terms of Service</Trans>
-              </a>
-              <a href="https://stoat.chat/privacy" target="_blank">
-                <Trans>Privacy Policy</Trans>
-              </a>
-            </NavItems>
           </NavItems>
           <NavItems variant="hide">
             <Trans>Image by {"@fakurian"}</Trans>
