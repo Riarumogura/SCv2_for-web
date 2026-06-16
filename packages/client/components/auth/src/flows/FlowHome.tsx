@@ -9,7 +9,7 @@ import { Navigate } from "@revolt/routing";
 import { Button, Column } from "@revolt/ui";
 
 import { useState } from "@revolt/state";
-import Wordmark from "../../../../public/assets/web/wordmark.svg?component-solid";
+import Wordmark from "../../../../assets/sawara-logo.svg?component-solid";
 
 /**
  * Flow for logging into an account
@@ -31,7 +31,6 @@ export default function FlowHome() {
               class={css({
                 width: "60%",
                 margin: "auto",
-                fill: "var(--md-sys-color-on-surface)",
               })}
             />
 
@@ -52,14 +51,13 @@ export default function FlowHome() {
                     <wbr />
                     munity,
                     <br />
-                    connect with the world.
+                    connect with each other.
                   </Trans>
                 </span>
               </b>
               <span style={{ "text-align": "center", opacity: "0.5" }}>
                 <Trans>
-                  Stoat is one of the best ways to stay connected with your
-                  friends and community, anywhere, anytime.
+                  SawaraChats is your private community chat app.
                 </Trans>
               </span>
             </Column>
