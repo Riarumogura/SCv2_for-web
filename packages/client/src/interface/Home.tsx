@@ -22,11 +22,10 @@ import MdAddCircle from "@material-design-icons/svg/filled/add_circle.svg?compon
 import MdExplore from "@material-design-icons/svg/filled/explore.svg?component-solid";
 import MdGroups3 from "@material-design-icons/svg/filled/groups_3.svg?component-solid";
 import MdHome from "@material-design-icons/svg/filled/home.svg?component-solid";
-import MdPayments from "@material-design-icons/svg/filled/payments.svg?component-solid";
 import MdRateReview from "@material-design-icons/svg/filled/rate_review.svg?component-solid";
 import MdSettings from "@material-design-icons/svg/filled/settings.svg?component-solid";
 
-import Wordmark from "../../public/assets/web/wordmark.svg?component-solid";
+import Wordmark from "../../assets/sawara-logo.svg?component-solid";
 
 import { HeaderIcon } from "./common/CommonHeader";
 
@@ -113,7 +112,6 @@ export function HomePage() {
           <Wordmark
             class={css({
               width: "160px",
-              fill: "var(--md-sys-color-on-surface)",
             })}
           />
         </Column>
@@ -173,16 +171,6 @@ export function HomePage() {
                 </CategoryButton>
               </Match>
             </Switch>
-            <CategoryButton
-              variant="tertiary"
-              onClick={() => window.open("https://ko-fi.com/stoatchat")}
-              description={
-                <Trans>Support the project by donating - thank you!</Trans>
-              }
-              icon={<MdPayments />}
-            >
-              <Trans>Donate to Stoat</Trans>
-            </CategoryButton>
           </SeparatedColumn>
           <SeparatedColumn>
             <Show when={CONFIGURATION.IS_STOAT}>
@@ -213,7 +201,7 @@ export function HomePage() {
               }
               icon={<MdRateReview {...iconSize(22)} />}
             >
-              <Trans>Give feedback on Stoat</Trans>
+              <Trans>Give feedback on SawaraChats</Trans>
             </CategoryButton>
             <CategoryButton
               onClick={() => openModal({ type: "settings", config: "user" })}
