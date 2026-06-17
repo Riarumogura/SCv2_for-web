@@ -7,6 +7,7 @@ import {
   Show,
   Switch,
   createMemo,
+  createSignal,
 } from "solid-js";
 
 import { useLingui } from "@lingui-solid/solid/macro";
@@ -39,6 +40,7 @@ import { Symbol } from "@revolt/ui/components/utils/Symbol";
 import MdChevronRight from "@material-design-icons/svg/filled/chevron_right.svg?component-solid";
 
 import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?component-solid";
+import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
 
 import { SidebarBase } from "./common";
 
@@ -91,6 +93,7 @@ type OrderingEvent =
  */
 export const ServerSidebar = (props: Props) => {
   const navigate = useNavigate();
+  const { openModal } = useModals();
 
   // Users can manage certain parts of the server individually, regardless of their ManageServer Permission
   const canManageServer = () =>
@@ -191,6 +194,18 @@ export const ServerSidebar = (props: Props) => {
     }
   }
 
+  // CUSTOM: ストレージメニューを追加
+  const [storages, setStorages] = createSignal<any[]>([]);
+  const [loading, setLoading] = createSignal(false);
+
+  // ストレージ作成モーダルを開く
+  const openCreateStorageModal = () => {
+    openModal({
+      type: "create_storage",
+      serverId: props.server.id,
+    });
+  };
+
   return (
     <SidebarBase use:floating={props.menuGenerator(props.server)}>
       <Switch
@@ -247,6 +262,80 @@ export const ServerSidebar = (props: Props) => {
             />
           )}
         </Draggable>
+
+        {/* CUSTOM: ストレージメニューセクション */}
+        <StorageSection>
+          <StorageHeader>
+            <Row align="center" gap="sm">
+              <MdStorage {...iconSize(16)} />
+              <span style={{ fontWeight: "bold" }}>ストレージ</span>
+            </Row>
+            <IconButton
+              size="xs"
+              variant="standard"
+              onPress={openCreateStorageModal}
+              title="新しいストレージを作成"
+            >
+              <Symbol size={16}>add</Symbol>
+            </IconButton>
+          </StorageHeader>
+
+          <Show
+            when={storages().length > 0}
+            fallback={
+              <StorageEmptyState>
+                <div style={{ textAlign: "center", padding: "var(--gap-md)" }}>
+                  <MdStorage {...iconSize(32)} style={{ opacity: 0.5 }} />
+                  <p style={{ marginTop: "var(--gap-sm)", fontSize: "12px" }}>
+                    ストレージがありません
+                  </p>
+                  <button
+                    onClick={openCreateStorageModal}
+                    style={{
+                      marginTop: "var(--gap-sm)",
+                      padding: "var(--gap-xs) var(--gap-sm)",
+                      background: "var(--md-sys-color-primary)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "var(--borderRadius-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    作成する
+                  </button>
+                </div>
+              </StorageEmptyState>
+            }
+          >
+            <StorageList>
+              {storages().map((storage) => (
+                <StorageItem
+                  onClick={() => {
+                    // TODO: ストレージエクスプローラーを開く
+                    console.log("Open storage:", storage.id);
+                  }}
+                >
+                  <Row align="center" gap="sm">
+                    <Symbol size={16}>folder</Symbol>
+                    <OverflowingText style={{ fontSize: "13px" }}>
+                      {storage.name}
+                    </OverflowingText>
+                  </Row>
+                  <StorageUsage>
+                    <div
+                      style={{
+                        width: `${(storage.usedSize / storage.sizeLimit) * 100}%`,
+                        height: "2px",
+                        background: "var(--md-sys-color-primary)",
+                        borderRadius: "1px",
+                      }}
+                    />
+                  </StorageUsage>
+                </StorageItem>
+              ))}
+            </StorageList>
+          </Show>
+        </StorageSection>
       </div>
     </SidebarBase>
   );
@@ -571,5 +660,67 @@ const ChannelIcon = styled("img", {
     width: "16px",
     height: "16px",
     objectFit: "contain",
+  },
+});
+
+// CUSTOM: ストレージセクションのスタイル
+const StorageSection = styled("div", {
+  base: {
+    marginTop: "var(--gap-lg)",
+    padding: "var(--gap-sm)",
+    borderRadius: "var(--borderRadius-sm)",
+    background: "var(--md-sys-color-surface-container-low)",
+    border: "1px solid var(--md-sys-color-outline-variant)",
+  },
+});
+
+const StorageHeader = styled("div", {
+  base: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "var(--gap-xs) var(--gap-sm)",
+    marginBottom: "var(--gap-sm)",
+  },
+});
+
+const StorageEmptyState = styled("div", {
+  base: {
+    padding: "var(--gap-md)",
+    textAlign: "center",
+    color: "var(--md-sys-color-on-surface-variant)",
+  },
+});
+
+const StorageList = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--gap-xs)",
+  },
+});
+
+const StorageItem = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--gap-xs)",
+    padding: "var(--gap-xs) var(--gap-sm)",
+    borderRadius: "var(--borderRadius-sm)",
+    cursor: "pointer",
+    transition: "var(--transitions-fast) background",
+
+    "&:hover": {
+      background: "var(--md-sys-color-surface-container-highest)",
+    },
+  },
+});
+
+const StorageUsage = styled("div", {
+  base: {
+    height: "2px",
+    background: "var(--md-sys-color-surface-container-highest)",
+    borderRadius: "1px",
+    overflow: "hidden",
   },
 });

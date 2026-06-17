@@ -47,6 +47,10 @@ export type SidebarState =
       state: "pins";
     }
   | {
+      state: "storage";
+      storageId: string;
+    }
+  | {
       state: "default";
     };
 
@@ -266,6 +270,19 @@ export function TextChannel(props: ChannelPageProps) {
                     channel={props.channel}
                     query={{ pinned: true, sort: "Latest" }}
                   />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "storage"}>
+                <WideSidebarContainer>
+                  <SidebarTitle>
+                    <Text class="label" size="large">
+                      ストレージエクスプローラー
+                    </Text>
+                  </SidebarTitle>
+                  {/* CUSTOM: ストレージエクスプローラーコンポーネントをここに追加 */}
+                  <div style={{ padding: "var(--gap-md)" }}>
+                    ストレージID: {(sidebarState() as { storageId: string }).storageId}
+                  </div>
                 </WideSidebarContainer>
               </Match>
             </Switch>

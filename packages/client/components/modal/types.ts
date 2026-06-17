@@ -347,4 +347,8 @@ export type Modals =
         image?: string;
       }[];
       onCancel: () => void;
+    }
+  | {
+      type: "create_storage";
+      serverId: string;
     };
