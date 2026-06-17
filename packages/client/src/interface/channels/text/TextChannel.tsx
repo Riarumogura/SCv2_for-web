@@ -34,6 +34,7 @@ import { ChannelPageProps } from "../ChannelPage";
 import { MessageComposition } from "./Composition";
 import { MemberSidebar } from "./MemberSidebar";
 import { TextSearchSidebar } from "./TextSearchSidebar";
+import { StorageExplorer } from "./StorageExplorer";
 
 /**
  * State of the channel sidebar
@@ -280,9 +281,10 @@ export function TextChannel(props: ChannelPageProps) {
                     </Text>
                   </SidebarTitle>
                   {/* CUSTOM: ストレージエクスプローラーコンポーネントをここに追加 */}
-                  <div style={{ padding: "var(--gap-md)" }}>
-                    ストレージID: {(sidebarState() as { storageId: string }).storageId}
-                  </div>
+                  <StorageExplorer
+                    serverId={props.channel.serverId}
+                    storageId={(sidebarState() as { storageId: string }).storageId}
+                  />
                 </WideSidebarContainer>
               </Match>
             </Switch>

@@ -351,4 +351,10 @@ export type Modals =
   | {
       type: "create_storage";
       serverId: string;
+    }
+  | {
+      type: "select_folder";
+      serverId: string;
+      storageId: string;
+      onSelect: (folderPath: string) => void;
     };

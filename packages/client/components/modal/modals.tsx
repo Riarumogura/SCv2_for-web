@@ -60,6 +60,8 @@ import { UserProfileModal } from "./modals/UserProfile";
 import { UserProfileMutualFriendsModal } from "./modals/UserProfileMutualFriends";
 import { UserProfileMutualGroupsModal } from "./modals/UserProfileMutualGroups";
 import { UserProfileRolesModal } from "./modals/UserProfileRoles";
+import { CreateStorageModal } from "./modals/CreateStorage";
+import { SelectFolderModal } from "./modals/SelectFolder";
 
 /**
  * Render the modal
@@ -193,6 +195,10 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <ScreenShareSettingsModal {...modalProps} />;
     case "screen_share_picker":
       return <ScreenSharePickerModal {...modalProps} />;
+    case "create_storage":
+      return <CreateStorageModal {...modalProps} />;
+    case "select_folder":
+      return <SelectFolderModal {...modalProps} />;
     default:
       console.error(
         "Failed to create modal for",

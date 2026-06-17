@@ -174,9 +174,17 @@ export class StorageApiClient {
     serverId: string,
     storageId: string,
     fileUrl: string,
-    destinationPath: string
+    destinationPath: string,
+    folderPath?: string
   ): Promise<StorageFile> {
     const headers = await this.getAuthHeaders();
+    
+    // フォルダパスをdestinationPathに組み込む
+    let finalDestinationPath = destinationPath;
+    if (folderPath && folderPath !== "") {
+      finalDestinationPath = `${folderPath}/${destinationPath}`;
+    }
+
     const response = await fetch(
       `${this.baseUrl}/servers/${serverId}/storages/${storageId}/files/copy`,
       {
@@ -184,7 +192,7 @@ export class StorageApiClient {
         headers,
         body: JSON.stringify({
           sourceUrl: fileUrl,
-          destinationPath,
+          destinationPath: finalDestinationPath,
         }),
       }
     );

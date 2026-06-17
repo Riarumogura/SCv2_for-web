@@ -142,33 +142,42 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
    * CUSTOM: ファイルをストレージに保存
    */
   async function saveToStorage(storageId: string) {
-    if (!props.file || !props.message?.serverId) return;
+    if (!props.file || !props.message?.server?.id) return;
 
-    try {
-      setLoading(true);
-      await storageApi.saveToStorage(
-        props.message.serverId,
-        storageId,
-        props.file.originalUrl,
-        `chat_${props.message.id}_${props.file.filename}`
-      );
-      // TODO: 成功通知を表示
-    } catch (error) {
-      showError(error);
-    } finally {
-      setLoading(false);
-    }
+    // フォルダ選択ダイアログを表示
+    openModal({
+      type: "select_folder",
+      serverId: props.message.server.id,
+      storageId: storageId,
+      onSelect: async (folderPath: string) => {
+        try {
+          setLoading(true);
+          await storageApi.saveToStorage(
+            props.message!.server!.id,
+            storageId,
+            props.file!.originalUrl,
+            `chat_${props.message!.id}_${props.file!.filename}`,
+            folderPath
+          );
+          // TODO: 成功通知を表示
+        } catch (error) {
+          showError(error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   }
 
   /**
    * CUSTOM: ストレージ一覧を取得
    */
   async function loadStorages() {
-    if (!props.message?.serverId) return;
+    if (!props.message?.server?.id) return;
 
     try {
       setLoading(true);
-      const serverStorages = await storageApi.getStorages(props.message.serverId);
+      const serverStorages = await storageApi.getStorages(props.message.server.id);
       setStorages(serverStorages);
     } catch (error) {
       showError(error);
@@ -197,7 +206,7 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
         </a>
 
         {/* CUSTOM: ストレージに保存メニュー */}
-        <Show when={props.message?.serverId}>
+        <Show when={props.message?.server?.id}>
           <ContextMenuDivider />
           <ContextMenuSubMenu
             icon={MdStorage}
@@ -207,7 +216,7 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
             <Show
               when={storages().length > 0}
               fallback={
-                <ContextMenuButton disabled={loading()}>
+                <ContextMenuButton _disabled={loading()}>
                   <Trans>Loading storages...</Trans>
                 </ContextMenuButton>
               }
@@ -216,7 +225,7 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
                 {(storage) => (
                   <ContextMenuButton
                     onClick={() => saveToStorage(storage.id)}
-                    disabled={loading()}
+                    _disabled={loading()}
                   >
                     <div style={{ display: "flex", "justify-content": "space-between", width: "100%" }}>
                       <span>{storage.name}</span>
@@ -235,4 +244,37 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
       </Show>
       <Show when={props.message}>
         <Show when={props.message!.channel?.havePermission("SendMessage")}>
-          <ContextMenuButton icon={MdReply}
+          <ContextMenuButton icon={MdReply} onClick={reply}>
+            <Trans>Reply</Trans>
+          </ContextMenuButton>
+        </Show>
+        <ContextMenuButton icon={MdMarkChatUnread} onClick={markAsUnread}>
+          <Trans>Mark as unread</Trans>
+        </ContextMenuButton>
+        <ContextMenuButton icon={MdContentCopy} onClick={copyText}>
+          <Trans>Copy text</Trans>
+        </ContextMenuButton>
+        <ContextMenuButton icon={MdLink} onClick={copyLink}>
+          <Trans>Copy link</Trans>
+        </ContextMenuButton>
+        <ContextMenuButton icon={MdPin} onClick={() => props.message!.pin()}>
+          <Trans>Pin message</Trans>
+        </ContextMenuButton>
+        <ContextMenuDivider />
+        <ContextMenuButton icon={MdReport} onClick={report}>
+          <Trans>Report</Trans>
+        </ContextMenuButton>
+        <ContextMenuButton icon={MdShield} onClick={openAdminPanel}>
+          <Trans>Open in Admin Panel</Trans>
+        </ContextMenuButton>
+        <ContextMenuDivider />
+        <ContextMenuButton icon={MdDelete} onClick={deleteMessage}>
+          <Trans>Delete message</Trans>
+        </ContextMenuButton>
+        <ContextMenuButton icon={MdDeleteSweep} onClick={() => props.message!.delete()}>
+          <Trans>Delete (no confirmation)</Trans>
+        </ContextMenuButton>
+      </Show>
+    </ContextMenu>
+  );
+}
