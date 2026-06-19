@@ -98,17 +98,39 @@ export function Attachment(props: { file: File; message?: Message }) {
         </AttachmentContainer>
       </Match>
       <Match when={props.file.metadata.type === "File"}>
-        <AttachmentContainer>
-          <FileInfo file={props.file} />
-        </AttachmentContainer>
+        {/* CUSTOM: use:floatingはネイティブDOM要素にしか効かないため、styled
+            コンポーネントのAttachmentContainerではなくdisplay:contentsの
+            素のdivに配線する(画像/動画/音声と同様にファイル用コンテキスト
+            メニューを開けるようにするための修正) */}
+        <div
+          style={{ display: "contents" }}
+          use:floating={{
+            contextMenu: () => (
+              <MessageContextMenu message={props.message} file={props.file} />
+            ),
+          }}
+        >
+          <AttachmentContainer>
+            <FileInfo file={props.file} />
+          </AttachmentContainer>
+        </div>
       </Match>
       <Match when={props.file.metadata.type === "Text"}>
-        <AttachmentContainer>
-          <FileInfo file={props.file} />
-          <SizedContent width={480} height={120}>
-            <TextFile file={props.file} />
-          </SizedContent>
-        </AttachmentContainer>
+        <div
+          style={{ display: "contents" }}
+          use:floating={{
+            contextMenu: () => (
+              <MessageContextMenu message={props.message} file={props.file} />
+            ),
+          }}
+        >
+          <AttachmentContainer>
+            <FileInfo file={props.file} />
+            <SizedContent width={480} height={120}>
+              <TextFile file={props.file} />
+            </SizedContent>
+          </AttachmentContainer>
+        </div>
       </Match>
     </Switch>
   );
