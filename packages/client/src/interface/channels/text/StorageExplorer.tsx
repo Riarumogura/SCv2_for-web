@@ -2,7 +2,9 @@
 import { For, Show, createSignal, onMount } from "solid-js";
 import { styled } from "styled-system/jsx";
 
-import { useStorageApi, StorageEntry } from "../../../api/storage";
+import { useModals } from "@revolt/modal";
+
+import { useStorageApi, StorageEntry, StorageConfig } from "../../../api/storage";
 
 interface StorageExplorerProps {
   serverId: string;
@@ -14,11 +16,23 @@ interface StorageExplorerProps {
  */
 export function StorageExplorer(props: StorageExplorerProps) {
   const storageApi = useStorageApi();
+  const { openModal } = useModals();
   const [entries, setEntries] = createSignal<StorageEntry[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [currentPath, setCurrentPath] = createSignal<string>("");
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [storageInfo, setStorageInfo] = createSignal<StorageConfig | null>(null);
   let fileInput: HTMLInputElement | undefined;
+
+  // ストレージの容量・使用量情報を取得
+  const loadStorageInfo = async () => {
+    try {
+      const info = await storageApi.getStorage(props.serverId, props.storageId);
+      setStorageInfo(info);
+    } catch (error) {
+      console.error("ストレージ情報の取得に失敗しました:", error);
+    }
+  };
 
   // ファイル/フォルダ一覧を取得
   const loadFiles = async (path?: string) => {
@@ -43,9 +57,10 @@ export function StorageExplorer(props: StorageExplorerProps) {
     }
   };
 
-  // コンポーネントマウント時にファイル一覧を取得
+  // コンポーネントマウント時にファイル一覧・ストレージ情報を取得
   onMount(() => {
     loadFiles();
+    loadStorageInfo();
   });
 
   // パンくずリストのパスを分割
@@ -143,6 +158,7 @@ export function StorageExplorer(props: StorageExplorerProps) {
       setLoading(true);
       await storageApi.uploadFile(props.serverId, props.storageId, file, destination);
       await loadFiles(currentPath());
+      await loadStorageInfo();
     } catch (error) {
       console.error("ファイルのアップロードに失敗しました:", error);
       window.alert("ファイルのアップロードに失敗しました");
@@ -163,6 +179,7 @@ export function StorageExplorer(props: StorageExplorerProps) {
       setLoading(true);
       await storageApi.uploadFile(props.serverId, props.storageId, file, destination);
       await loadFiles(currentPath());
+      await loadStorageInfo();
     } catch (error) {
       console.error("ファイルのアップロードに失敗しました:", error);
       window.alert("ファイルのアップロードに失敗しました");
@@ -197,10 +214,71 @@ export function StorageExplorer(props: StorageExplorerProps) {
     try {
       await storageApi.deleteFile(props.serverId, props.storageId, entryPath(entry));
       await loadFiles(currentPath());
+      await loadStorageInfo();
     } catch (error) {
       console.error("ファイルの削除に失敗しました:", error);
       window.alert("ファイルの削除に失敗しました");
     }
+  };
+
+  // フォルダの名前を変更
+  const handleRenameFolder = async (entry: StorageEntry) => {
+    const newName = window.prompt("新しいフォルダ名を入力してください", entry.name);
+    if (!newName || newName === entry.name) return;
+
+    const oldPath = entryPath(entry);
+    const newPath = currentPath() ? `${currentPath()}/${newName}` : newName;
+
+    try {
+      await storageApi.renameFolder(props.serverId, props.storageId, oldPath, newPath);
+      await loadFiles(currentPath());
+    } catch (error) {
+      console.error("フォルダの名前変更に失敗しました:", error);
+      window.alert("フォルダの名前変更に失敗しました");
+    }
+  };
+
+  // フォルダを別の場所へ移動
+  const handleMoveFolder = (entry: StorageEntry) => {
+    const oldPath = entryPath(entry);
+
+    openModal({
+      type: "select_folder",
+      serverId: props.serverId,
+      storageId: props.storageId,
+      onSelect: async (destinationPath) => {
+        const newPath = destinationPath ? `${destinationPath}/${entry.name}` : entry.name;
+        if (newPath === oldPath) return;
+
+        try {
+          await storageApi.renameFolder(props.serverId, props.storageId, oldPath, newPath);
+          await loadFiles(currentPath());
+        } catch (error) {
+          console.error("フォルダの移動に失敗しました:", error);
+          window.alert("フォルダの移動に失敗しました(移動先がフォルダ自身の中になっていないか確認してください)");
+        }
+      },
+    });
+  };
+
+  // フォルダを削除
+  const handleDeleteFolder = async (entry: StorageEntry) => {
+    if (!window.confirm(`「${entry.name}」とその中身をすべて削除しますか?`)) return;
+
+    try {
+      await storageApi.deleteFolder(props.serverId, props.storageId, entryPath(entry));
+      await loadFiles(currentPath());
+      await loadStorageInfo();
+    } catch (error) {
+      console.error("フォルダの削除に失敗しました:", error);
+      window.alert("フォルダの削除に失敗しました");
+    }
+  };
+
+  // バイト数を読みやすい容量表記に変換
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 GB";
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
   };
 
   return (
@@ -229,6 +307,24 @@ export function StorageExplorer(props: StorageExplorerProps) {
             </For>
           </PathBreadcrumbs>
         </PathNavigation>
+
+        <Show when={storageInfo()}>
+          {(info) => (
+            <CapacityBar>
+              <CapacityBarTrack>
+                <CapacityBarFill
+                  style={{
+                    width: `${Math.min(100, (info().usedSize / info().sizeLimit) * 100)}%`,
+                  }}
+                />
+              </CapacityBarTrack>
+              <CapacityBarLabel>
+                {formatBytes(info().usedSize)} / {formatBytes(info().sizeLimit)} (
+                {Math.round((info().usedSize / info().sizeLimit) * 100)}%) ・{info().fileCount}件
+              </CapacityBarLabel>
+            </CapacityBar>
+          )}
+        </Show>
 
         <ActionBar>
           <SearchBox>
@@ -324,6 +420,19 @@ export function StorageExplorer(props: StorageExplorerProps) {
                             </button>
                           </FileActions>
                         </Show>
+                        <Show when={entry.type === "folder"}>
+                          <FileActions>
+                            <button onClick={() => handleRenameFolder(entry)}>
+                              名前変更
+                            </button>
+                            <button onClick={() => handleMoveFolder(entry)}>
+                              移動
+                            </button>
+                            <button onClick={() => handleDeleteFolder(entry)}>
+                              削除
+                            </button>
+                          </FileActions>
+                        </Show>
                       </FileTableCell>
                     </FileTableRow>
                   )}
@@ -392,6 +501,38 @@ const PathItem = styled("button", {
 const PathSeparator = styled("span", {
   base: {
     margin: "0 var(--gap-xs)",
+    color: "var(--md-sys-color-on-surface-variant)",
+  },
+});
+
+const CapacityBar = styled("div", {
+  base: {
+    marginBottom: "var(--gap-md)",
+  },
+});
+
+const CapacityBarTrack = styled("div", {
+  base: {
+    width: "100%",
+    height: "6px",
+    borderRadius: "3px",
+    background: "var(--md-sys-color-surface-container-highest)",
+    overflow: "hidden",
+    marginBottom: "var(--gap-xs)",
+  },
+});
+
+const CapacityBarFill = styled("div", {
+  base: {
+    height: "100%",
+    background: "var(--md-sys-color-primary)",
+    borderRadius: "3px",
+  },
+});
+
+const CapacityBarLabel = styled("div", {
+  base: {
+    fontSize: "12px",
     color: "var(--md-sys-color-on-surface-variant)",
   },
 });

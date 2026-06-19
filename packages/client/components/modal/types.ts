@@ -26,6 +26,7 @@ import { CategoryData } from "@revolt/app/menus/CategoryContextMenu";
 import { ScreenShareQualityName } from "@revolt/state/stores/Voice";
 
 import type { ChangelogResponse } from "./modals/Changelog";
+import type { StorageConfig } from "../../src/api/storage";
 
 export type Modals =
   | {
@@ -352,6 +353,19 @@ export type Modals =
       type: "create_storage";
       serverId: string;
       onCreated?: () => void;
+    }
+  | {
+      type: "edit_storage";
+      serverId: string;
+      storage: StorageConfig;
+      onUpdated?: () => void;
+    }
+  | {
+      type: "delete_storage";
+      serverId: string;
+      storageId: string;
+      storageName: string;
+      onDeleted?: () => void;
     }
   | {
       type: "select_folder";

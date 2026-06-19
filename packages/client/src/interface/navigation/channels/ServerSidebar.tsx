@@ -202,6 +202,11 @@ export const ServerSidebar = (props: Props) => {
   const storageApi = useStorageApi();
   const [storages, setStorages] = createSignal<StorageConfig[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [serverLimits, setServerLimits] = createSignal<{
+    used: number;
+    limit: number;
+    percentage: number;
+  } | null>(null);
 
   // ストレージ一覧を取得
   const loadStorages = async () => {
@@ -216,16 +221,55 @@ export const ServerSidebar = (props: Props) => {
     }
   };
 
-  onMount(() => {
+  // サーバー全体の容量上限情報を取得
+  const loadServerLimits = async () => {
+    try {
+      const limits = await storageApi.getServerLimits(props.server.id);
+      setServerLimits(limits);
+    } catch (error) {
+      console.error("サーバー容量情報の取得に失敗しました:", error);
+    }
+  };
+
+  const refreshStorages = () => {
     loadStorages();
+    loadServerLimits();
+  };
+
+  onMount(() => {
+    refreshStorages();
   });
+
+  // バイト数を読みやすい容量表記に変換
+  const formatBytes = (bytes: number) => `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 
   // ストレージ作成モーダルを開く
   const openCreateStorageModal = () => {
     openModal({
       type: "create_storage",
       serverId: props.server.id,
-      onCreated: loadStorages,
+      onCreated: refreshStorages,
+    });
+  };
+
+  // ストレージ編集モーダルを開く
+  const openEditStorageModal = (storage: StorageConfig) => {
+    openModal({
+      type: "edit_storage",
+      serverId: props.server.id,
+      storage,
+      onUpdated: refreshStorages,
+    });
+  };
+
+  // ストレージ削除モーダルを開く
+  const openDeleteStorageModal = (storage: StorageConfig) => {
+    openModal({
+      type: "delete_storage",
+      serverId: props.server.id,
+      storageId: storage.id,
+      storageName: storage.name,
+      onDeleted: refreshStorages,
     });
   };
 
@@ -309,6 +353,30 @@ export const ServerSidebar = (props: Props) => {
             </Tooltip>
           </StorageHeader>
 
+          <Show when={serverLimits()}>
+            {(limits) => (
+              <ServerStorageUsage>
+                <StorageUsage>
+                  <div
+                    style={{
+                      width: `${Math.min(100, limits().percentage)}%`,
+                      height: "100%",
+                      background:
+                        limits().percentage >= 90
+                          ? "var(--md-sys-color-error)"
+                          : "var(--md-sys-color-primary)",
+                      "border-radius": "1px",
+                    }}
+                  />
+                </StorageUsage>
+                <span style={{ "font-size": "11px" }}>
+                  サーバー全体: {formatBytes(limits().used)} / {formatBytes(limits().limit)} (
+                  {limits().percentage}%)
+                </span>
+              </ServerStorageUsage>
+            )}
+          </Show>
+
           <Show
             when={storages().length > 0}
             fallback={
@@ -341,22 +409,45 @@ export const ServerSidebar = (props: Props) => {
                 <StorageItem
                   onClick={() => openStorage(storage.id)}
                 >
-                  <Row align gap="sm">
-                    <Symbol size={16}>folder</Symbol>
-                    <OverflowingText style={{ "font-size": "13px" }}>
-                      {storage.name}
-                    </OverflowingText>
+                  <Row align gap="sm" style={{ "justify-content": "space-between" }}>
+                    <Row align gap="sm" style={{ overflow: "hidden" }}>
+                      <Symbol size={16}>folder</Symbol>
+                      <OverflowingText style={{ "font-size": "13px" }}>
+                        {storage.name}
+                      </OverflowingText>
+                    </Row>
+                    <StorageItemActions
+                      onClick={(e: MouseEvent) => e.stopPropagation()}
+                    >
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => openEditStorageModal(storage)}
+                      >
+                        <Symbol size={14}>edit</Symbol>
+                      </IconButton>
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => openDeleteStorageModal(storage)}
+                      >
+                        <Symbol size={14}>delete</Symbol>
+                      </IconButton>
+                    </StorageItemActions>
                   </Row>
                   <StorageUsage>
                     <div
                       style={{
-                        width: `${(storage.usedSize / storage.sizeLimit) * 100}%`,
+                        width: `${Math.min(100, (storage.usedSize / storage.sizeLimit) * 100)}%`,
                         height: "2px",
                         background: "var(--md-sys-color-primary)",
                         "border-radius": "1px",
                       }}
                     />
                   </StorageUsage>
+                  <span style={{ "font-size": "11px", opacity: 0.7 }}>
+                    {formatBytes(storage.usedSize)} / {formatBytes(storage.sizeLimit)}
+                  </span>
                 </StorageItem>
               ))}
             </StorageList>
@@ -726,6 +817,17 @@ const StorageList = styled("div", {
   },
 });
 
+const ServerStorageUsage = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--gap-xs)",
+    padding: "var(--gap-xs) var(--gap-sm)",
+    marginBottom: "var(--gap-sm)",
+    color: "var(--md-sys-color-on-surface-variant)",
+  },
+});
+
 const StorageItem = styled("div", {
   base: {
     display: "flex",
@@ -739,6 +841,14 @@ const StorageItem = styled("div", {
     "&:hover": {
       background: "var(--md-sys-color-surface-container-highest)",
     },
+  },
+});
+
+const StorageItemActions = styled("div", {
+  base: {
+    display: "flex",
+    gap: "2px",
+    flexShrink: 0,
   },
 });
 

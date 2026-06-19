@@ -61,6 +61,8 @@ import { UserProfileMutualFriendsModal } from "./modals/UserProfileMutualFriends
 import { UserProfileMutualGroupsModal } from "./modals/UserProfileMutualGroups";
 import { UserProfileRolesModal } from "./modals/UserProfileRoles";
 import { CreateStorageModal } from "./modals/CreateStorage";
+import { EditStorageModal } from "./modals/EditStorage";
+import { DeleteStorageModal } from "./modals/DeleteStorage";
 import { SelectFolderModal } from "./modals/SelectFolder";
 
 /**
@@ -197,6 +199,10 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <ScreenSharePickerModal {...modalProps} />;
     case "create_storage":
       return <CreateStorageModal {...modalProps} />;
+    case "edit_storage":
+      return <EditStorageModal {...modalProps} />;
+    case "delete_storage":
+      return <DeleteStorageModal {...modalProps} />;
     case "select_folder":
       return <SelectFolderModal {...modalProps} />;
     default:

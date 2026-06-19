@@ -273,6 +273,106 @@ export class StorageApiClient {
       throw new Error(`フォルダの作成に失敗しました: ${response.status}`);
     }
   }
+
+  /**
+   * フォルダの名前変更・移動
+   */
+  async renameFolder(
+    serverId: string,
+    storageId: string,
+    path: string,
+    newPath: string
+  ): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/folders`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ path, newPath }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`フォルダの移動・名前変更に失敗しました: ${response.status}`);
+    }
+  }
+
+  /**
+   * フォルダを削除
+   */
+  async deleteFolder(serverId: string, storageId: string, path: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/folders`, {
+      method: "DELETE",
+      headers,
+      body: JSON.stringify({ path }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`フォルダの削除に失敗しました: ${response.status}`);
+    }
+  }
+
+  /**
+   * ストレージを更新(名前・容量上限)
+   */
+  async updateStorage(
+    serverId: string,
+    storageId: string,
+    data: { name?: string; sizeLimit?: number }
+  ): Promise<StorageConfig> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`ストレージの更新に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * ストレージを削除
+   * CUSTOM: ボディを送らないリクエストにContent-Type: application/jsonを付けると
+   * Fastifyの標準JSONパーサーが空文字列のJSON.parseに失敗し400を返すため、
+   * このヘッダーだけ除外する。
+   */
+  async deleteStorage(serverId: string, storageId: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const { "Content-Type": _, ...restHeaders } = headers as Record<string, string>;
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}`, {
+      method: "DELETE",
+      headers: restHeaders,
+    });
+
+    if (!response.ok) {
+      throw new Error(`ストレージの削除に失敗しました: ${response.status}`);
+    }
+  }
+
+  /**
+   * サーバー全体のストレージ容量上限情報を取得
+   */
+  async getServerLimits(serverId: string): Promise<{
+    used: number;
+    limit: number;
+    available: number;
+    percentage: number;
+  }> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage/server/limits`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`サーバー容量情報の取得に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
 }
 
 /**
