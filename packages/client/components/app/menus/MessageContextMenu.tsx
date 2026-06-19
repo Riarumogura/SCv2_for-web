@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createSignal } from "solid-js";
+import { For, Match, Show, Switch, createSignal, onMount } from "solid-js";
 
 import { Trans } from "@lingui-solid/solid/macro";
 import { File, Message } from "stoat.js";
@@ -186,6 +186,16 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
     }
   }
 
+  // CUSTOM: 「ストレージに保存」サブメニューはホバーだけで開く(ContextMenuSubMenuに
+  // onClickを渡すと内部のクリックでの開閉トグルが無効化されるため、クリックに依存せず
+  // メニュー表示時(マウント時)に一覧を取得しておく。これをしないとホバーのみで
+  // サブメニューを開いたユーザーには「Loading storages...」が表示され続けてしまう。
+  onMount(() => {
+    if (props.file && props.message?.server?.id) {
+      loadStorages();
+    }
+  });
+
   return (
     <ContextMenu>
       <Show when={props.file}>
@@ -210,14 +220,13 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
           <ContextMenuDivider />
           <ContextMenuSubMenu
             icon={MdStorage}
-            onClick={loadStorages}
             buttonContent={<Trans>Save to Storage</Trans>}
           >
             <Show
               when={storages().length > 0}
               fallback={
                 <ContextMenuButton>
-                  <Trans>Loading storages...</Trans>
+                  {loading() ? <Trans>Loading storages...</Trans> : <Trans>No storages found</Trans>}
                 </ContextMenuButton>
               }
             >
