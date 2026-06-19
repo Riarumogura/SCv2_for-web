@@ -31,18 +31,27 @@ export interface CreateStorageRequest {
  */
 export class StorageApiClient {
   private baseUrl: string;
-  
+  // CUSTOM: useClient()はSolidの reactive owner が有効な間(コンポーネントの
+  // セットアップ時)にしか呼び出せない。createStorage等の実行時(イベントハンドラ
+  // 内の非同期処理)に遅延呼び出しすると owner が失われ
+  // "Cannot read properties of null (reading 'getCurrentClient')" になるため、
+  // useStorageApi()からコンストラクタ呼び出し時点で取得して保持する。
+  private getClient: ReturnType<typeof useClient>;
+
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || env.DEFAULT_STORAGE_API_URL;
+    this.getClient = useClient();
   }
 
   /**
    * 認証ヘッダーを取得
+   * CUSTOM: storage-apiのauthPlugin (services/storage-api/src/plugins/auth.ts) は
+   * serverIdをURLからではなく X-Server-Id ヘッダーから読み取る実装になっているため、
+   * 必ずこのヘッダーを付与する。
    */
-  private async getAuthHeaders(): Promise<HeadersInit> {
-    const client = useClient();
-    const currentClient = client();
-    
+  private async getAuthHeaders(serverId: string): Promise<HeadersInit> {
+    const currentClient = this.getClient();
+
     if (!currentClient) {
       throw new Error("クライアントが取得できません");
     }
@@ -55,6 +64,7 @@ export class StorageApiClient {
 
     return {
       [authHeader[0]]: authHeader[1],
+      "X-Server-Id": serverId,
       "Content-Type": "application/json",
     };
   }
@@ -63,8 +73,8 @@ export class StorageApiClient {
    * サーバーのストレージ一覧を取得
    */
   async getStorages(serverId: string): Promise<StorageConfig[]> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseUrl}/servers/${serverId}/storages`, {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage`, {
       method: "GET",
       headers,
     });
@@ -80,8 +90,8 @@ export class StorageApiClient {
    * ストレージを作成
    */
   async createStorage(serverId: string, data: CreateStorageRequest): Promise<StorageConfig> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseUrl}/servers/${serverId}/storages`, {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage`, {
       method: "POST",
       headers,
       body: JSON.stringify(data),
@@ -98,8 +108,8 @@ export class StorageApiClient {
    * ストレージの詳細を取得
    */
   async getStorage(serverId: string, storageId: string): Promise<StorageConfig> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseUrl}/servers/${serverId}/storages/${storageId}`, {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}`, {
       method: "GET",
       headers,
     });
@@ -115,7 +125,7 @@ export class StorageApiClient {
    * ストレージ内のファイル一覧を取得
    */
   async listFiles(serverId: string, storageId: string, path?: string): Promise<StorageFile[]> {
-    const headers = await this.getAuthHeaders();
+    const headers = await this.getAuthHeaders(serverId);
     const url = new URL(`${this.baseUrl}/servers/${serverId}/storages/${storageId}/files`);
     
     if (path) {
@@ -143,7 +153,7 @@ export class StorageApiClient {
     file: File,
     path: string
   ): Promise<StorageFile> {
-    const headers = await this.getAuthHeaders();
+    const headers = await this.getAuthHeaders(serverId);
     const formData = new FormData();
     formData.append("file", file);
     formData.append("path", path);
@@ -177,7 +187,7 @@ export class StorageApiClient {
     destinationPath: string,
     folderPath?: string
   ): Promise<StorageFile> {
-    const headers = await this.getAuthHeaders();
+    const headers = await this.getAuthHeaders(serverId);
     
     // フォルダパスをdestinationPathに組み込む
     let finalDestinationPath = destinationPath;
@@ -208,7 +218,7 @@ export class StorageApiClient {
    * ファイルを削除
    */
   async deleteFile(serverId: string, storageId: string, filePath: string): Promise<void> {
-    const headers = await this.getAuthHeaders();
+    const headers = await this.getAuthHeaders(serverId);
     const response = await fetch(
       `${this.baseUrl}/servers/${serverId}/storages/${storageId}/files`,
       {
@@ -227,7 +237,7 @@ export class StorageApiClient {
    * フォルダを作成
    */
   async createFolder(serverId: string, storageId: string, path: string): Promise<void> {
-    const headers = await this.getAuthHeaders();
+    const headers = await this.getAuthHeaders(serverId);
     const response = await fetch(
       `${this.baseUrl}/servers/${serverId}/storages/${storageId}/folders`,
       {
