@@ -20,6 +20,11 @@ export interface StorageEntry {
   lastModified?: string;
 }
 
+// CUSTOM: 再帰検索結果の1エントリ。pathはストレージルートからの相対パス。
+export interface StorageSearchEntry extends StorageEntry {
+  path: string;
+}
+
 // CUSTOM: アップロード/コピー成功時のレスポンス。typeはMIMEタイプ。
 export interface UploadedFile {
   name: string;
@@ -32,6 +37,20 @@ export interface UploadedFile {
 export interface CreateStorageRequest {
   name: string;
   sizeLimit: number;
+}
+
+export type FileKind = "folder" | "image" | "movie" | "pdf" | "text" | "file";
+
+// CUSTOM: 拡張子からファイル種別を判定する。アイコン表示とインラインプレビューの
+// 両方で同じ分類を使うため、ここに集約している。
+export function getFileKind(name: string, type: "file" | "folder"): FileKind {
+  if (type === "folder") return "folder";
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
+  if (["mp4", "webm", "mov", "mkv"].includes(ext)) return "movie";
+  if (ext === "pdf") return "pdf";
+  if (["txt", "md", "json", "log"].includes(ext)) return "text";
+  return "file";
 }
 
 /**
@@ -153,6 +172,30 @@ export class StorageApiClient {
   }
 
   /**
+   * ストレージ全体を再帰的にファイル名検索する
+   */
+  async searchFiles(
+    serverId: string,
+    storageId: string,
+    query: string
+  ): Promise<StorageSearchEntry[]> {
+    const headers = await this.getAuthHeaders(serverId);
+    const url = new URL(`${this.baseUrl}/storage/${storageId}/search`);
+    url.searchParams.set("q", query);
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`ストレージの検索に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * ファイルをアップロード
    */
   async uploadFile(
@@ -183,11 +226,12 @@ export class StorageApiClient {
   }
 
   /**
-   * ファイルをダウンロードするためのURLを取得
+   * ファイルをBlobとして取得する
    * (X-Server-Id/X-Session-Tokenはブラウザのリンク遷移では送れないため、
-   *  fetchでBlobとして取得してから一時的なURLを生成する)
+   *  fetchでBlobとして取得してから一時的なURLを生成する。ダウンロードと
+   *  インラインプレビューの両方からこのメソッドを利用する)
    */
-  async downloadFile(serverId: string, storageId: string, path: string): Promise<{ url: string; filename: string }> {
+  async fetchFileBlob(serverId: string, storageId: string, path: string): Promise<Blob> {
     const headers = await this.getAuthHeaders(serverId);
     const url = new URL(`${this.baseUrl}/storage/${storageId}/files/download`);
     url.searchParams.set("path", path);
@@ -198,10 +242,17 @@ export class StorageApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`ファイルのダウンロードに失敗しました: ${response.status}`);
+      throw new Error(`ファイルの取得に失敗しました: ${response.status}`);
     }
 
-    const blob = await response.blob();
+    return response.blob();
+  }
+
+  /**
+   * ファイルをダウンロードするためのURLを取得
+   */
+  async downloadFile(serverId: string, storageId: string, path: string): Promise<{ url: string; filename: string }> {
+    const blob = await this.fetchFileBlob(serverId, storageId, path);
     return {
       url: URL.createObjectURL(blob),
       filename: path.split("/").pop() || "file",

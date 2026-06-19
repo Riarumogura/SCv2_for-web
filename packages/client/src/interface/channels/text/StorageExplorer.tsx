@@ -1,10 +1,23 @@
 // CUSTOM: ストレージエクスプローラーコンポーネント
-import { For, Show, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { styled } from "styled-system/jsx";
 
 import { useModals } from "@revolt/modal";
 
-import { useStorageApi, StorageEntry, StorageConfig } from "../../../api/storage";
+import {
+  useStorageApi,
+  getFileKind,
+  StorageEntry,
+  StorageSearchEntry,
+  StorageConfig,
+} from "../../../api/storage";
+
+// 通常のフォルダ一覧表示・検索結果表示のどちらでも扱える共通型
+type DisplayEntry = StorageEntry | StorageSearchEntry;
+
+// 検索結果(パス付き)かどうかを判定
+const hasPath = (entry: DisplayEntry): entry is StorageSearchEntry =>
+  "path" in entry;
 
 interface StorageExplorerProps {
   serverId: string;
@@ -21,8 +34,66 @@ export function StorageExplorer(props: StorageExplorerProps) {
   const [loading, setLoading] = createSignal(false);
   const [currentPath, setCurrentPath] = createSignal<string>("");
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [searchResults, setSearchResults] = createSignal<StorageSearchEntry[]>([]);
   const [storageInfo, setStorageInfo] = createSignal<StorageConfig | null>(null);
   let fileInput: HTMLInputElement | undefined;
+
+  // フォルダを先に、各グループ内は名前順に並べる
+  const sortEntries = <T extends DisplayEntry>(list: T[]) =>
+    [...list].sort((a, b) => {
+      if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  // 検索中かどうか
+  const isSearchMode = () => searchQuery().trim().length > 0;
+
+  // 表示対象のエントリ一覧(検索中はストレージ全体の検索結果、それ以外は現在のフォルダ一覧)
+  const displayEntries = (): DisplayEntry[] =>
+    isSearchMode() ? searchResults() : entries();
+
+  // エントリの絶対パスを組み立て(検索結果はpathを持っているのでそれを使う)
+  const getEntryFullPath = (entry: DisplayEntry) =>
+    hasPath(entry) ? entry.path : entryPath(entry);
+
+  // ストレージ全体を再帰的に検索
+  const runSearch = async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const results = await storageApi.searchFiles(props.serverId, props.storageId, trimmed);
+      setSearchResults(sortEntries(results));
+    } catch (error) {
+      console.error("ストレージの検索に失敗しました:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 検索クエリ入力後、少し待ってから検索を実行(デバウンス)
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(() => {
+    const query = searchQuery();
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => runSearch(query), 300);
+  });
+  onCleanup(() => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  });
+
+  // 現在の表示モードに応じて一覧を再取得
+  const refresh = async () => {
+    if (isSearchMode()) {
+      await runSearch(searchQuery());
+    } else {
+      await loadFiles(currentPath());
+    }
+  };
 
   // ストレージの容量・使用量情報を取得
   const loadStorageInfo = async () => {
@@ -43,12 +114,7 @@ export function StorageExplorer(props: StorageExplorerProps) {
         props.storageId,
         path
       );
-      // フォルダを先に、各グループ内は名前順に表示
-      entryList.sort((a, b) => {
-        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-      setEntries(entryList);
+      setEntries(sortEntries(entryList));
       setCurrentPath(path || "");
     } catch (error) {
       console.error("ファイル一覧の取得に失敗しました:", error);
@@ -74,14 +140,21 @@ export function StorageExplorer(props: StorageExplorerProps) {
     currentPath() ? `${currentPath()}/${entry.name}` : entry.name;
 
   // フォルダ/拡張子に基づくアイコンを取得
-  const getEntryIcon = (entry: StorageEntry) => {
-    if (entry.type === "folder") return "folder";
-    const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
-    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
-    if (["mp4", "webm", "mov", "mkv"].includes(ext)) return "movie";
-    if (ext === "pdf") return "picture_as_pdf";
-    if (["txt", "md", "json", "log"].includes(ext)) return "description";
-    return "insert_drive_file";
+  const getEntryIcon = (entry: DisplayEntry) => {
+    switch (getFileKind(entry.name, entry.type)) {
+      case "folder":
+        return "folder";
+      case "image":
+        return "image";
+      case "movie":
+        return "movie";
+      case "pdf":
+        return "picture_as_pdf";
+      case "text":
+        return "description";
+      default:
+        return "insert_drive_file";
+    }
   };
 
   // ファイルサイズを人間が読みやすい形式に変換
@@ -106,19 +179,20 @@ export function StorageExplorer(props: StorageExplorerProps) {
     });
   };
 
-  // 検索フィルター
-  const filteredEntries = () => {
-    const query = searchQuery().toLowerCase();
-    if (!query) return entries();
-    return entries().filter((entry) =>
-      entry.name.toLowerCase().includes(query)
-    );
-  };
-
-  // フォルダを開く / ファイルをクリックしたときの処理
-  const openEntry = (entry: StorageEntry) => {
+  // フォルダを開く / ファイルをクリックしたときの処理(プレビュー表示)
+  const openEntry = (entry: DisplayEntry) => {
+    const path = getEntryFullPath(entry);
     if (entry.type === "folder") {
-      loadFiles(entryPath(entry));
+      setSearchQuery("");
+      loadFiles(path);
+    } else {
+      openModal({
+        type: "storage_preview",
+        serverId: props.serverId,
+        storageId: props.storageId,
+        path,
+        name: entry.name,
+      });
     }
   };
 
@@ -189,12 +263,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // ファイルをダウンロード
-  const handleDownload = async (entry: StorageEntry) => {
+  const handleDownload = async (entry: DisplayEntry) => {
     try {
       const { url, filename } = await storageApi.downloadFile(
         props.serverId,
         props.storageId,
-        entryPath(entry)
+        getEntryFullPath(entry)
       );
       const a = document.createElement("a");
       a.href = url;
@@ -208,12 +282,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // ファイルを削除
-  const handleDelete = async (entry: StorageEntry) => {
+  const handleDelete = async (entry: DisplayEntry) => {
     if (!window.confirm(`「${entry.name}」を削除しますか?`)) return;
 
     try {
-      await storageApi.deleteFile(props.serverId, props.storageId, entryPath(entry));
-      await loadFiles(currentPath());
+      await storageApi.deleteFile(props.serverId, props.storageId, getEntryFullPath(entry));
+      await refresh();
       await loadStorageInfo();
     } catch (error) {
       console.error("ファイルの削除に失敗しました:", error);
@@ -222,16 +296,17 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // フォルダの名前を変更
-  const handleRenameFolder = async (entry: StorageEntry) => {
+  const handleRenameFolder = async (entry: DisplayEntry) => {
     const newName = window.prompt("新しいフォルダ名を入力してください", entry.name);
     if (!newName || newName === entry.name) return;
 
-    const oldPath = entryPath(entry);
-    const newPath = currentPath() ? `${currentPath()}/${newName}` : newName;
+    const oldPath = getEntryFullPath(entry);
+    const parentPath = oldPath.split("/").slice(0, -1).join("/");
+    const newPath = parentPath ? `${parentPath}/${newName}` : newName;
 
     try {
       await storageApi.renameFolder(props.serverId, props.storageId, oldPath, newPath);
-      await loadFiles(currentPath());
+      await refresh();
     } catch (error) {
       console.error("フォルダの名前変更に失敗しました:", error);
       window.alert("フォルダの名前変更に失敗しました");
@@ -239,8 +314,8 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // フォルダを別の場所へ移動
-  const handleMoveFolder = (entry: StorageEntry) => {
-    const oldPath = entryPath(entry);
+  const handleMoveFolder = (entry: DisplayEntry) => {
+    const oldPath = getEntryFullPath(entry);
 
     openModal({
       type: "select_folder",
@@ -252,7 +327,7 @@ export function StorageExplorer(props: StorageExplorerProps) {
 
         try {
           await storageApi.renameFolder(props.serverId, props.storageId, oldPath, newPath);
-          await loadFiles(currentPath());
+          await refresh();
         } catch (error) {
           console.error("フォルダの移動に失敗しました:", error);
           window.alert("フォルダの移動に失敗しました(移動先がフォルダ自身の中になっていないか確認してください)");
@@ -262,12 +337,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // フォルダを削除
-  const handleDeleteFolder = async (entry: StorageEntry) => {
+  const handleDeleteFolder = async (entry: DisplayEntry) => {
     if (!window.confirm(`「${entry.name}」とその中身をすべて削除しますか?`)) return;
 
     try {
-      await storageApi.deleteFolder(props.serverId, props.storageId, entryPath(entry));
-      await loadFiles(currentPath());
+      await storageApi.deleteFolder(props.serverId, props.storageId, getEntryFullPath(entry));
+      await refresh();
       await loadStorageInfo();
     } catch (error) {
       console.error("フォルダの削除に失敗しました:", error);
@@ -353,6 +428,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
             />
           </ActionButtons>
         </ActionBar>
+
+        <Show when={isSearchMode()}>
+          <SearchModeNotice>
+            「{searchQuery()}」の検索結果({searchResults().length}件、ストレージ全体を対象)
+          </SearchModeNotice>
+        </Show>
       </ExplorerHeader>
 
       {/* ファイル一覧 */}
@@ -369,13 +450,15 @@ export function StorageExplorer(props: StorageExplorerProps) {
           }
         >
           <Show
-            when={filteredEntries().length > 0}
+            when={displayEntries().length > 0}
             fallback={
               <EmptyState>
-                <div>ファイルがありません</div>
-                <div style={{ "font-size": "12px", "margin-top": "var(--gap-sm)" }}>
-                  ファイルをドラッグ&ドロップ、またはアップロードボタンから追加してください
-                </div>
+                <div>{isSearchMode() ? "検索結果がありません" : "ファイルがありません"}</div>
+                <Show when={!isSearchMode()}>
+                  <div style={{ "font-size": "12px", "margin-top": "var(--gap-sm)" }}>
+                    ファイルをドラッグ&ドロップ、またはアップロードボタンから追加してください
+                  </div>
+                </Show>
               </EmptyState>
             }
           >
@@ -389,12 +472,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
                 </FileTableRow>
               </FileTableHeader>
               <FileTableBody>
-                <For each={filteredEntries()}>
+                <For each={displayEntries()}>
                   {(entry) => (
                     <FileTableRow>
                       <FileTableCell
                         onClick={() => openEntry(entry)}
-                        style={{ cursor: entry.type === "folder" ? "pointer" : "default" }}
+                        style={{ cursor: "pointer" }}
                       >
                         <FileIcon>
                           <span class="material-symbols-outlined">
@@ -402,6 +485,11 @@ export function StorageExplorer(props: StorageExplorerProps) {
                           </span>
                         </FileIcon>
                         <FileName>{entry.name}</FileName>
+                        <Show when={hasPath(entry)}>
+                          <FilePathHint>
+                            {(entry as StorageSearchEntry).path}
+                          </FilePathHint>
+                        </Show>
                       </FileTableCell>
                       <FileTableCell>
                         {entry.type === "folder" ? "-" : formatFileSize(entry.size)}
@@ -560,6 +648,14 @@ const SearchBox = styled("div", {
   },
 });
 
+const SearchModeNotice = styled("div", {
+  base: {
+    fontSize: "12px",
+    color: "var(--md-sys-color-on-surface-variant)",
+    marginTop: "var(--gap-xs)",
+  },
+});
+
 const ActionButtons = styled("div", {
   base: {
     display: "flex",
@@ -664,6 +760,14 @@ const FileIcon = styled("div", {
 const FileName = styled("span", {
   base: {
     verticalAlign: "middle",
+  },
+});
+
+const FilePathHint = styled("div", {
+  base: {
+    fontSize: "11px",
+    color: "var(--md-sys-color-on-surface-variant)",
+    marginLeft: "calc(20px + var(--gap-sm))",
   },
 });
 

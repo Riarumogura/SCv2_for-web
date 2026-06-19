@@ -372,4 +372,11 @@ export type Modals =
       serverId: string;
       storageId: string;
       onSelect: (folderPath: string) => void;
+    }
+  | {
+      type: "storage_preview";
+      serverId: string;
+      storageId: string;
+      path: string;
+      name: string;
     };

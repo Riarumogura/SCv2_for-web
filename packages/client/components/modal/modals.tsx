@@ -64,6 +64,7 @@ import { CreateStorageModal } from "./modals/CreateStorage";
 import { EditStorageModal } from "./modals/EditStorage";
 import { DeleteStorageModal } from "./modals/DeleteStorage";
 import { SelectFolderModal } from "./modals/SelectFolder";
+import { StoragePreviewModal } from "./modals/StoragePreview";
 
 /**
  * Render the modal
@@ -205,6 +206,8 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <DeleteStorageModal {...modalProps} />;
     case "select_folder":
       return <SelectFolderModal {...modalProps} />;
+    case "storage_preview":
+      return <StoragePreviewModal {...modalProps} />;
     default:
       console.error(
         "Failed to create modal for",
