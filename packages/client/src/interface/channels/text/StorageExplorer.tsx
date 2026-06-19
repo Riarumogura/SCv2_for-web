@@ -3,6 +3,7 @@ import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid
 import { styled } from "styled-system/jsx";
 
 import { useModals } from "@revolt/modal";
+import { StorageEntryContextMenu } from "@revolt/app";
 
 import {
   useStorageApi,
@@ -468,59 +469,69 @@ export function StorageExplorer(props: StorageExplorerProps) {
                   <FileTableHeaderCell>名前</FileTableHeaderCell>
                   <FileTableHeaderCell>サイズ</FileTableHeaderCell>
                   <FileTableHeaderCell>更新日時</FileTableHeaderCell>
-                  <FileTableHeaderCell>操作</FileTableHeaderCell>
                 </FileTableRow>
               </FileTableHeader>
               <FileTableBody>
                 <For each={displayEntries()}>
                   {(entry) => (
                     <FileTableRow>
-                      <FileTableCell
-                        onClick={() => openEntry(entry)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <FileIcon>
-                          <span class="material-symbols-outlined">
-                            {getEntryIcon(entry)}
-                          </span>
-                        </FileIcon>
-                        <FileName>{entry.name}</FileName>
-                        <Show when={hasPath(entry)}>
-                          <FilePathHint>
-                            {(entry as StorageSearchEntry).path}
-                          </FilePathHint>
-                        </Show>
+                      <FileTableCell onClick={() => openEntry(entry)} style={{ padding: 0 }}>
+                        {/* CUSTOM: use:floatingはネイティブDOM要素にしか効かないため、styled
+                            コンポーネントのFileTableCellではなく素のdivに配線する。
+                            右クリックでファイル/フォルダの操作メニューを表示する。 */}
+                        <div
+                          style={{
+                            display: "flex",
+                            "align-items": "center",
+                            padding: "var(--gap-sm)",
+                            cursor: "pointer",
+                          }}
+                          use:floating={{
+                            contextMenu: () => (
+                              <StorageEntryContextMenu
+                                type={entry.type}
+                                onDownload={
+                                  entry.type === "file"
+                                    ? () => handleDownload(entry)
+                                    : undefined
+                                }
+                                onRename={
+                                  entry.type === "folder"
+                                    ? () => handleRenameFolder(entry)
+                                    : undefined
+                                }
+                                onMove={
+                                  entry.type === "folder"
+                                    ? () => handleMoveFolder(entry)
+                                    : undefined
+                                }
+                                onDelete={() =>
+                                  entry.type === "folder"
+                                    ? handleDeleteFolder(entry)
+                                    : handleDelete(entry)
+                                }
+                              />
+                            ),
+                          }}
+                        >
+                          <FileIcon>
+                            <span class="material-symbols-outlined">
+                              {getEntryIcon(entry)}
+                            </span>
+                          </FileIcon>
+                          <FileName>{entry.name}</FileName>
+                          <Show when={hasPath(entry)}>
+                            <FilePathHint>
+                              {(entry as StorageSearchEntry).path}
+                            </FilePathHint>
+                          </Show>
+                        </div>
                       </FileTableCell>
                       <FileTableCell>
                         {entry.type === "folder" ? "-" : formatFileSize(entry.size)}
                       </FileTableCell>
                       <FileTableCell>
                         {entry.type === "folder" ? "-" : formatDate(entry.lastModified)}
-                      </FileTableCell>
-                      <FileTableCell>
-                        <Show when={entry.type === "file"}>
-                          <FileActions>
-                            <button onClick={() => handleDownload(entry)}>
-                              ダウンロード
-                            </button>
-                            <button onClick={() => handleDelete(entry)}>
-                              削除
-                            </button>
-                          </FileActions>
-                        </Show>
-                        <Show when={entry.type === "folder"}>
-                          <FileActions>
-                            <button onClick={() => handleRenameFolder(entry)}>
-                              名前変更
-                            </button>
-                            <button onClick={() => handleMoveFolder(entry)}>
-                              移動
-                            </button>
-                            <button onClick={() => handleDeleteFolder(entry)}>
-                              削除
-                            </button>
-                          </FileActions>
-                        </Show>
                       </FileTableCell>
                     </FileTableRow>
                   )}
@@ -771,23 +782,6 @@ const FilePathHint = styled("div", {
   },
 });
 
-const FileActions = styled("div", {
-  base: {
-    display: "flex",
-    gap: "var(--gap-xs)",
-    "& button": {
-      padding: "var(--gap-xs) var(--gap-sm)",
-      background: "var(--md-sys-color-surface-container-highest)",
-      border: "1px solid var(--md-sys-color-outline)",
-      borderRadius: "var(--borderRadius-sm)",
-      cursor: "pointer",
-      fontSize: "12px",
-      "&:hover": {
-        background: "var(--md-sys-color-surface-container-high)",
-      },
-    },
-  },
-});
 
 const ExplorerFooter = styled("div", {
   base: {
