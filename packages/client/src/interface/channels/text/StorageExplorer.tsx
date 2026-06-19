@@ -4,6 +4,8 @@ import { styled } from "styled-system/jsx";
 
 import { useModals } from "@revolt/modal";
 import { StorageEntryContextMenu } from "@revolt/app";
+import { IconButton } from "@revolt/ui";
+import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import {
   useStorageApi,
@@ -412,15 +414,27 @@ export function StorageExplorer(props: StorageExplorerProps) {
             />
           </SearchBox>
           <ActionButtons>
-            <button onClick={() => loadFiles(currentPath())}>
-              更新
-            </button>
-            <button onClick={handleCreateFolder}>
-              新規フォルダ
-            </button>
-            <button onClick={handleUploadClick}>
-              アップロード
-            </button>
+            <IconButton
+              variant="filled"
+              onPress={() => loadFiles(currentPath())}
+              use:floating={{ tooltip: { placement: "top", content: "更新" } }}
+            >
+              <Symbol>refresh</Symbol>
+            </IconButton>
+            <IconButton
+              variant="filled"
+              onPress={handleCreateFolder}
+              use:floating={{ tooltip: { placement: "top", content: "新規フォルダ" } }}
+            >
+              <Symbol>create_new_folder</Symbol>
+            </IconButton>
+            <IconButton
+              variant="filled"
+              onPress={handleUploadClick}
+              use:floating={{ tooltip: { placement: "top", content: "アップロード" } }}
+            >
+              <Symbol>upload</Symbol>
+            </IconButton>
             <input
               ref={fileInput}
               type="file"
@@ -670,19 +684,8 @@ const SearchModeNotice = styled("div", {
 const ActionButtons = styled("div", {
   base: {
     display: "flex",
+    alignItems: "center",
     gap: "var(--gap-sm)",
-    "& button": {
-      padding: "var(--gap-sm) var(--gap-md)",
-      background: "var(--md-sys-color-primary)",
-      color: "white",
-      border: "none",
-      borderRadius: "var(--borderRadius-sm)",
-      cursor: "pointer",
-      fontSize: "14px",
-      "&:hover": {
-        opacity: 0.9,
-      },
-    },
   },
 });
 
