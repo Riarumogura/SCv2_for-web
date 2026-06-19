@@ -216,7 +216,7 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
             <Show
               when={storages().length > 0}
               fallback={
-                <ContextMenuButton _disabled={loading()}>
+                <ContextMenuButton>
                   <Trans>Loading storages...</Trans>
                 </ContextMenuButton>
               }
@@ -224,8 +224,10 @@ export function MessageContextMenu(props: { message?: Message; file?: File }) {
               <For each={storages()}>
                 {(storage) => (
                   <ContextMenuButton
-                    onClick={() => saveToStorage(storage.id)}
-                    _disabled={loading()}
+                    onClick={() => {
+                      if (!loading()) saveToStorage(storage.id);
+                    }}
+                    style={{ opacity: loading() ? 0.5 : 1 }}
                   >
                     <div style={{ display: "flex", "justify-content": "space-between", width: "100%" }}>
                       <span>{storage.name}</span>

@@ -32,6 +32,7 @@ export function CreateStorageModal(
         sizeLimit: parseInt(group.controls.sizeLimit.value) * 1024 * 1024 * 1024, // GB to bytes
       });
 
+      props.onCreated?.();
       props.onClose();
     } catch (error) {
       showError(error);

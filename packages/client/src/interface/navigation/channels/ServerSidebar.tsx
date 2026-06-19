@@ -8,6 +8,7 @@ import {
   Switch,
   createMemo,
   createSignal,
+  onMount,
 } from "solid-js";
 
 import { useLingui } from "@lingui-solid/solid/macro";
@@ -41,6 +42,9 @@ import MdChevronRight from "@material-design-icons/svg/filled/chevron_right.svg?
 
 import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?component-solid";
 import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
+
+import { useStorageApi, StorageConfig } from "../../../api/storage";
+import { requestOpenStorage } from "../../../api/storageExplorerSignal";
 
 import { SidebarBase } from "./common";
 
@@ -195,15 +199,39 @@ export const ServerSidebar = (props: Props) => {
   }
 
   // CUSTOM: ストレージメニューを追加
-  const [storages, setStorages] = createSignal<any[]>([]);
+  const storageApi = useStorageApi();
+  const [storages, setStorages] = createSignal<StorageConfig[]>([]);
   const [loading, setLoading] = createSignal(false);
+
+  // ストレージ一覧を取得
+  const loadStorages = async () => {
+    try {
+      setLoading(true);
+      const list = await storageApi.getStorages(props.server.id);
+      setStorages(list);
+    } catch (error) {
+      console.error("ストレージ一覧の取得に失敗しました:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  onMount(() => {
+    loadStorages();
+  });
 
   // ストレージ作成モーダルを開く
   const openCreateStorageModal = () => {
     openModal({
       type: "create_storage",
       serverId: props.server.id,
+      onCreated: loadStorages,
     });
+  };
+
+  // ストレージエクスプローラーを開く
+  const openStorage = (storageId: string) => {
+    requestOpenStorage({ serverId: props.server.id, storageId });
   };
 
   return (
@@ -266,38 +294,39 @@ export const ServerSidebar = (props: Props) => {
         {/* CUSTOM: ストレージメニューセクション */}
         <StorageSection>
           <StorageHeader>
-            <Row align="center" gap="sm">
+            <Row align gap="sm">
               <MdStorage {...iconSize(16)} />
-              <span style={{ fontWeight: "bold" }}>ストレージ</span>
+              <span style={{ "font-weight": "bold" }}>ストレージ</span>
             </Row>
-            <IconButton
-              size="xs"
-              variant="standard"
-              onPress={openCreateStorageModal}
-              title="新しいストレージを作成"
-            >
-              <Symbol size={16}>add</Symbol>
-            </IconButton>
+            <Tooltip content="新しいストレージを作成" placement="top">
+              <IconButton
+                size="xs"
+                variant="standard"
+                onPress={openCreateStorageModal}
+              >
+                <Symbol size={16}>add</Symbol>
+              </IconButton>
+            </Tooltip>
           </StorageHeader>
 
           <Show
             when={storages().length > 0}
             fallback={
               <StorageEmptyState>
-                <div style={{ textAlign: "center", padding: "var(--gap-md)" }}>
+                <div style={{ "text-align": "center", padding: "var(--gap-md)" }}>
                   <MdStorage {...iconSize(32)} style={{ opacity: 0.5 }} />
-                  <p style={{ marginTop: "var(--gap-sm)", fontSize: "12px" }}>
+                  <p style={{ "margin-top": "var(--gap-sm)", "font-size": "12px" }}>
                     ストレージがありません
                   </p>
                   <button
                     onClick={openCreateStorageModal}
                     style={{
-                      marginTop: "var(--gap-sm)",
+                      "margin-top": "var(--gap-sm)",
                       padding: "var(--gap-xs) var(--gap-sm)",
                       background: "var(--md-sys-color-primary)",
                       color: "white",
                       border: "none",
-                      borderRadius: "var(--borderRadius-sm)",
+                      "border-radius": "var(--borderRadius-sm)",
                       cursor: "pointer",
                     }}
                   >
@@ -310,14 +339,11 @@ export const ServerSidebar = (props: Props) => {
             <StorageList>
               {storages().map((storage) => (
                 <StorageItem
-                  onClick={() => {
-                    // TODO: ストレージエクスプローラーを開く
-                    console.log("Open storage:", storage.id);
-                  }}
+                  onClick={() => openStorage(storage.id)}
                 >
-                  <Row align="center" gap="sm">
+                  <Row align gap="sm">
                     <Symbol size={16}>folder</Symbol>
-                    <OverflowingText style={{ fontSize: "13px" }}>
+                    <OverflowingText style={{ "font-size": "13px" }}>
                       {storage.name}
                     </OverflowingText>
                   </Row>
@@ -327,7 +353,7 @@ export const ServerSidebar = (props: Props) => {
                         width: `${(storage.usedSize / storage.sizeLimit) * 100}%`,
                         height: "2px",
                         background: "var(--md-sys-color-primary)",
-                        borderRadius: "1px",
+                        "border-radius": "1px",
                       }}
                     />
                   </StorageUsage>

@@ -12,8 +12,16 @@ export interface StorageConfig {
   updatedAt: string;
 }
 
-export interface StorageFile {
-  id: string;
+// CUSTOM: ストレージ内のファイル/フォルダ一覧の1エントリ(storage-apiのlistFilesAndFolders参照)
+export interface StorageEntry {
+  name: string;
+  type: "file" | "folder";
+  size: number;
+  lastModified?: string;
+}
+
+// CUSTOM: アップロード/コピー成功時のレスポンス。typeはMIMEタイプ。
+export interface UploadedFile {
   name: string;
   path: string;
   size: number;
@@ -124,10 +132,10 @@ export class StorageApiClient {
   /**
    * ストレージ内のファイル一覧を取得
    */
-  async listFiles(serverId: string, storageId: string, path?: string): Promise<StorageFile[]> {
+  async listFiles(serverId: string, storageId: string, path?: string): Promise<StorageEntry[]> {
     const headers = await this.getAuthHeaders(serverId);
-    const url = new URL(`${this.baseUrl}/servers/${serverId}/storages/${storageId}/files`);
-    
+    const url = new URL(`${this.baseUrl}/storage/${storageId}/files`);
+
     if (path) {
       url.searchParams.set("path", path);
     }
@@ -152,7 +160,7 @@ export class StorageApiClient {
     storageId: string,
     file: File,
     path: string
-  ): Promise<StorageFile> {
+  ): Promise<UploadedFile> {
     const headers = await this.getAuthHeaders(serverId);
     const formData = new FormData();
     formData.append("file", file);
@@ -161,20 +169,43 @@ export class StorageApiClient {
     // Content-Typeを削除（FormDataが自動設定）
     const { "Content-Type": _, ...restHeaders } = headers as Record<string, string>;
 
-    const response = await fetch(
-      `${this.baseUrl}/servers/${serverId}/storages/${storageId}/files`,
-      {
-        method: "POST",
-        headers: restHeaders,
-        body: formData,
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/files`, {
+      method: "POST",
+      headers: restHeaders,
+      body: formData,
+    });
 
     if (!response.ok) {
       throw new Error(`ファイルのアップロードに失敗しました: ${response.status}`);
     }
 
     return response.json();
+  }
+
+  /**
+   * ファイルをダウンロードするためのURLを取得
+   * (X-Server-Id/X-Session-Tokenはブラウザのリンク遷移では送れないため、
+   *  fetchでBlobとして取得してから一時的なURLを生成する)
+   */
+  async downloadFile(serverId: string, storageId: string, path: string): Promise<{ url: string; filename: string }> {
+    const headers = await this.getAuthHeaders(serverId);
+    const url = new URL(`${this.baseUrl}/storage/${storageId}/files/download`);
+    url.searchParams.set("path", path);
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`ファイルのダウンロードに失敗しました: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    return {
+      url: URL.createObjectURL(blob),
+      filename: path.split("/").pop() || "file",
+    };
   }
 
   /**
@@ -186,26 +217,23 @@ export class StorageApiClient {
     fileUrl: string,
     destinationPath: string,
     folderPath?: string
-  ): Promise<StorageFile> {
+  ): Promise<UploadedFile> {
     const headers = await this.getAuthHeaders(serverId);
-    
+
     // フォルダパスをdestinationPathに組み込む
     let finalDestinationPath = destinationPath;
     if (folderPath && folderPath !== "") {
       finalDestinationPath = `${folderPath}/${destinationPath}`;
     }
 
-    const response = await fetch(
-      `${this.baseUrl}/servers/${serverId}/storages/${storageId}/files/copy`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          sourceUrl: fileUrl,
-          destinationPath: finalDestinationPath,
-        }),
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/files/copy`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        sourceUrl: fileUrl,
+        destinationPath: finalDestinationPath,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error(`ファイルの保存に失敗しました: ${response.status}`);
@@ -219,14 +247,11 @@ export class StorageApiClient {
    */
   async deleteFile(serverId: string, storageId: string, filePath: string): Promise<void> {
     const headers = await this.getAuthHeaders(serverId);
-    const response = await fetch(
-      `${this.baseUrl}/servers/${serverId}/storages/${storageId}/files`,
-      {
-        method: "DELETE",
-        headers,
-        body: JSON.stringify({ path: filePath }),
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/files`, {
+      method: "DELETE",
+      headers,
+      body: JSON.stringify({ path: filePath }),
+    });
 
     if (!response.ok) {
       throw new Error(`ファイルの削除に失敗しました: ${response.status}`);
@@ -238,14 +263,11 @@ export class StorageApiClient {
    */
   async createFolder(serverId: string, storageId: string, path: string): Promise<void> {
     const headers = await this.getAuthHeaders(serverId);
-    const response = await fetch(
-      `${this.baseUrl}/servers/${serverId}/storages/${storageId}/folders`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ path }),
-      }
-    );
+    const response = await fetch(`${this.baseUrl}/storage/${storageId}/folders`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ path }),
+    });
 
     if (!response.ok) {
       throw new Error(`フォルダの作成に失敗しました: ${response.status}`);

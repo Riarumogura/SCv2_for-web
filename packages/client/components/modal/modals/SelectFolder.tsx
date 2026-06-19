@@ -7,7 +7,7 @@ import { Column, Dialog, DialogProps } from "@revolt/ui";
 
 import { useModals } from "..";
 import { Modals } from "../types";
-import { useStorageApi } from "../../../src/api/storage";
+import { useStorageApi, StorageEntry } from "../../../src/api/storage";
 
 interface SelectFolderProps {
   serverId: string;
@@ -25,28 +25,24 @@ export function SelectFolderModal(
   const { showError } = useModals();
   const storageApi = useStorageApi();
 
-  const [folders, setFolders] = createSignal<string[]>([]);
+  const [folders, setFolders] = createSignal<StorageEntry[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [currentPath, setCurrentPath] = createSignal<string>("");
   const [selectedPath, setSelectedPath] = createSignal<string>("");
 
-  // フォルダ一覧を取得
+  // 現在の階層にあるフォルダ一覧を取得(非再帰的に1階層分)
   const loadFolders = async (path?: string) => {
     try {
       setLoading(true);
-      const files = await storageApi.listFiles(
+      const entries = await storageApi.listFiles(
         props.serverId,
         props.storageId,
         path
       );
-      
-      // フォルダのみを抽出（パスに基づく簡易的な判定）
-      const folderPaths = files
-        .filter(file => file.type === "folder" || file.path.includes("/"))
-        .map(file => file.path);
-      
-      setFolders(folderPaths);
+
+      setFolders(entries.filter((entry) => entry.type === "folder"));
       setCurrentPath(path || "");
+      setSelectedPath("");
     } catch (error) {
       showError(error);
     } finally {
@@ -65,7 +61,13 @@ export function SelectFolderModal(
     return currentPath().split("/").filter(Boolean);
   };
 
-  // フォルダ選択
+  // フォルダの中に入る(一覧をその階層分に切り替える)
+  const handleOpenFolder = (folder: StorageEntry) => {
+    const path = currentPath() ? `${currentPath()}/${folder.name}` : folder.name;
+    loadFolders(path);
+  };
+
+  // フォルダ選択(新規作成入力など、まだ存在しないパスの選択用)
   const handleSelectFolder = (folderPath: string) => {
     setSelectedPath(folderPath);
   };
@@ -194,15 +196,13 @@ export function SelectFolderModal(
                   {(folder) => (
                     <button
                       type="button"
-                      onClick={() => handleSelectFolder(folder)}
+                      onClick={() => handleOpenFolder(folder)}
                       style={{
                         display: "flex",
                         "align-items": "center",
                         gap: "var(--gap-sm)",
                         padding: "var(--gap-sm)",
-                        background: selectedPath() === folder 
-                          ? "var(--md-sys-color-surface-container-highest)" 
-                          : "transparent",
+                        background: "transparent",
                         border: "1px solid var(--md-sys-color-outline)",
                         "border-radius": "var(--borderRadius-sm)",
                         cursor: "pointer",
@@ -210,7 +210,7 @@ export function SelectFolderModal(
                       }}
                     >
                       <span style={{ "font-size": "20px" }}>📁</span>
-                      <span style={{ "font-size": "14px" }}>{folder}</span>
+                      <span style={{ "font-size": "14px" }}>{folder.name}</span>
                     </button>
                   )}
                 </For>

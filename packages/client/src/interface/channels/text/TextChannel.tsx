@@ -31,6 +31,11 @@ import { VoiceChannelCallCardMount } from "@revolt/ui/components/features/voice/
 import { ChannelHeader } from "../ChannelHeader";
 import { ChannelPageProps } from "../ChannelPage";
 
+import {
+  consumePendingStorageOpen,
+  pendingStorageOpen,
+} from "../../../api/storageExplorerSignal";
+
 import { MessageComposition } from "./Composition";
 import { MemberSidebar } from "./MemberSidebar";
 import { TextSearchSidebar } from "./TextSearchSidebar";
@@ -160,6 +165,15 @@ export function TextChannel(props: ChannelPageProps) {
       () => setSidebarState({ state: "default" }),
     ),
   );
+
+  // CUSTOM: ServerSidebarのストレージ一覧クリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    const request = pendingStorageOpen();
+    if (request && request.serverId === props.channel.serverId) {
+      setSidebarState({ state: "storage", storageId: request.storageId });
+      consumePendingStorageOpen();
+    }
+  });
 
   return (
     <>

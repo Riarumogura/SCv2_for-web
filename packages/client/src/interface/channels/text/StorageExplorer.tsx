@@ -2,7 +2,7 @@
 import { For, Show, createSignal, onMount } from "solid-js";
 import { styled } from "styled-system/jsx";
 
-import { useStorageApi, StorageFile } from "../../../api/storage";
+import { useStorageApi, StorageEntry } from "../../../api/storage";
 
 interface StorageExplorerProps {
   serverId: string;
@@ -14,21 +14,27 @@ interface StorageExplorerProps {
  */
 export function StorageExplorer(props: StorageExplorerProps) {
   const storageApi = useStorageApi();
-  const [files, setFiles] = createSignal<StorageFile[]>([]);
+  const [entries, setEntries] = createSignal<StorageEntry[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [currentPath, setCurrentPath] = createSignal<string>("");
   const [searchQuery, setSearchQuery] = createSignal("");
+  let fileInput: HTMLInputElement | undefined;
 
-  // ファイル一覧を取得
+  // ファイル/フォルダ一覧を取得
   const loadFiles = async (path?: string) => {
     try {
       setLoading(true);
-      const fileList = await storageApi.listFiles(
+      const entryList = await storageApi.listFiles(
         props.serverId,
         props.storageId,
         path
       );
-      setFiles(fileList);
+      // フォルダを先に、各グループ内は名前順に表示
+      entryList.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      setEntries(entryList);
       setCurrentPath(path || "");
     } catch (error) {
       console.error("ファイル一覧の取得に失敗しました:", error);
@@ -48,12 +54,18 @@ export function StorageExplorer(props: StorageExplorerProps) {
     return currentPath().split("/").filter(Boolean);
   };
 
-  // ファイルタイプに基づくアイコンを取得
-  const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith("image/")) return "image";
-    if (fileType.startsWith("video/")) return "movie";
-    if (fileType === "application/pdf") return "picture_as_pdf";
-    if (fileType.startsWith("text/")) return "description";
+  // エントリの絶対パスを組み立て
+  const entryPath = (entry: StorageEntry) =>
+    currentPath() ? `${currentPath()}/${entry.name}` : entry.name;
+
+  // フォルダ/拡張子に基づくアイコンを取得
+  const getEntryIcon = (entry: StorageEntry) => {
+    if (entry.type === "folder") return "folder";
+    const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
+    if (["mp4", "webm", "mov", "mkv"].includes(ext)) return "movie";
+    if (ext === "pdf") return "picture_as_pdf";
+    if (["txt", "md", "json", "log"].includes(ext)) return "description";
     return "insert_drive_file";
   };
 
@@ -67,7 +79,8 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // 日付をフォーマット
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     const date = new Date(dateString);
     return date.toLocaleDateString("ja-JP", {
       year: "numeric",
@@ -79,12 +92,115 @@ export function StorageExplorer(props: StorageExplorerProps) {
   };
 
   // 検索フィルター
-  const filteredFiles = () => {
+  const filteredEntries = () => {
     const query = searchQuery().toLowerCase();
-    if (!query) return files();
-    return files().filter((file) =>
-      file.name.toLowerCase().includes(query)
+    if (!query) return entries();
+    return entries().filter((entry) =>
+      entry.name.toLowerCase().includes(query)
     );
+  };
+
+  // フォルダを開く / ファイルをクリックしたときの処理
+  const openEntry = (entry: StorageEntry) => {
+    if (entry.type === "folder") {
+      loadFiles(entryPath(entry));
+    }
+  };
+
+  // 新規フォルダを作成
+  const handleCreateFolder = async () => {
+    const name = window.prompt("新しいフォルダの名前を入力してください");
+    if (!name) return;
+
+    try {
+      await storageApi.createFolder(
+        props.serverId,
+        props.storageId,
+        currentPath() ? `${currentPath()}/${name}` : name
+      );
+      await loadFiles(currentPath());
+    } catch (error) {
+      console.error("フォルダの作成に失敗しました:", error);
+      window.alert("フォルダの作成に失敗しました");
+    }
+  };
+
+  // ファイル選択ダイアログを開く
+  const handleUploadClick = () => {
+    fileInput?.click();
+  };
+
+  // 選択されたファイルをアップロード
+  const handleFileSelected = async (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    const destination = currentPath() ? `${currentPath()}/${file.name}` : file.name;
+
+    try {
+      setLoading(true);
+      await storageApi.uploadFile(props.serverId, props.storageId, file, destination);
+      await loadFiles(currentPath());
+    } catch (error) {
+      console.error("ファイルのアップロードに失敗しました:", error);
+      window.alert("ファイルのアップロードに失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ドラッグ&ドロップでのアップロード
+  const handleDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    const destination = currentPath() ? `${currentPath()}/${file.name}` : file.name;
+
+    try {
+      setLoading(true);
+      await storageApi.uploadFile(props.serverId, props.storageId, file, destination);
+      await loadFiles(currentPath());
+    } catch (error) {
+      console.error("ファイルのアップロードに失敗しました:", error);
+      window.alert("ファイルのアップロードに失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ファイルをダウンロード
+  const handleDownload = async (entry: StorageEntry) => {
+    try {
+      const { url, filename } = await storageApi.downloadFile(
+        props.serverId,
+        props.storageId,
+        entryPath(entry)
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("ファイルのダウンロードに失敗しました:", error);
+      window.alert("ファイルのダウンロードに失敗しました");
+    }
+  };
+
+  // ファイルを削除
+  const handleDelete = async (entry: StorageEntry) => {
+    if (!window.confirm(`「${entry.name}」を削除しますか?`)) return;
+
+    try {
+      await storageApi.deleteFile(props.serverId, props.storageId, entryPath(entry));
+      await loadFiles(currentPath());
+    } catch (error) {
+      console.error("ファイルの削除に失敗しました:", error);
+      window.alert("ファイルの削除に失敗しました");
+    }
   };
 
   return (
@@ -127,18 +243,27 @@ export function StorageExplorer(props: StorageExplorerProps) {
             <button onClick={() => loadFiles(currentPath())}>
               更新
             </button>
-            <button onClick={() => {/* TODO: フォルダ作成モーダルを開く */}}>
+            <button onClick={handleCreateFolder}>
               新規フォルダ
             </button>
-            <button onClick={() => {/* TODO: ファイルアップロードダイアログを開く */}}>
+            <button onClick={handleUploadClick}>
               アップロード
             </button>
+            <input
+              ref={fileInput}
+              type="file"
+              style={{ display: "none" }}
+              onChange={handleFileSelected}
+            />
           </ActionButtons>
         </ActionBar>
       </ExplorerHeader>
 
       {/* ファイル一覧 */}
-      <FileListContainer>
+      <FileListContainer
+        onDragOver={(e: DragEvent) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         <Show
           when={!loading()}
           fallback={
@@ -148,12 +273,12 @@ export function StorageExplorer(props: StorageExplorerProps) {
           }
         >
           <Show
-            when={filteredFiles().length > 0}
+            when={filteredEntries().length > 0}
             fallback={
               <EmptyState>
                 <div>ファイルがありません</div>
                 <div style={{ "font-size": "12px", "margin-top": "var(--gap-sm)" }}>
-                  ファイルをアップロードするか、フォルダを作成してください
+                  ファイルをドラッグ&ドロップ、またはアップロードボタンから追加してください
                 </div>
               </EmptyState>
             }
@@ -168,30 +293,37 @@ export function StorageExplorer(props: StorageExplorerProps) {
                 </FileTableRow>
               </FileTableHeader>
               <FileTableBody>
-                <For each={filteredFiles()}>
-                  {(file) => (
+                <For each={filteredEntries()}>
+                  {(entry) => (
                     <FileTableRow>
-                      <FileTableCell>
+                      <FileTableCell
+                        onClick={() => openEntry(entry)}
+                        style={{ cursor: entry.type === "folder" ? "pointer" : "default" }}
+                      >
                         <FileIcon>
-                          <span>{getFileIcon(file.type)}</span>
+                          <span class="material-symbols-outlined">
+                            {getEntryIcon(entry)}
+                          </span>
                         </FileIcon>
-                        <FileName>{file.name}</FileName>
+                        <FileName>{entry.name}</FileName>
                       </FileTableCell>
                       <FileTableCell>
-                        {formatFileSize(file.size)}
+                        {entry.type === "folder" ? "-" : formatFileSize(entry.size)}
                       </FileTableCell>
                       <FileTableCell>
-                        {formatDate(file.lastModified)}
+                        {entry.type === "folder" ? "-" : formatDate(entry.lastModified)}
                       </FileTableCell>
                       <FileTableCell>
-                        <FileActions>
-                          <button onClick={() => {/* TODO: ダウンロード機能 */}}>
-                            ダウンロード
-                          </button>
-                          <button onClick={() => {/* TODO: 削除機能 */}}>
-                            削除
-                          </button>
-                        </FileActions>
+                        <Show when={entry.type === "file"}>
+                          <FileActions>
+                            <button onClick={() => handleDownload(entry)}>
+                              ダウンロード
+                            </button>
+                            <button onClick={() => handleDelete(entry)}>
+                              削除
+                            </button>
+                          </FileActions>
+                        </Show>
                       </FileTableCell>
                     </FileTableRow>
                   )}
@@ -205,7 +337,7 @@ export function StorageExplorer(props: StorageExplorerProps) {
       {/* フッターセクション */}
       <ExplorerFooter>
         <StorageInfo>
-          <div>ファイル数: {files().length}</div>
+          <div>項目数: {entries().length}</div>
           <div>パス: {currentPath() || "/"}</div>
         </StorageInfo>
       </ExplorerFooter>
