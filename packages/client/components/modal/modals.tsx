@@ -68,6 +68,7 @@ import { StoragePreviewModal } from "./modals/StoragePreview";
 import { CreateEventModal } from "./modals/CreateEvent";
 import { EditEventModal } from "./modals/EditEvent";
 import { DeleteEventModal } from "./modals/DeleteEvent";
+import { CalendarTradeColorSettingsModal } from "./modals/CalendarTradeColorSettings";
 
 /**
  * Render the modal
@@ -215,6 +216,8 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <EditEventModal {...modalProps} />;
     case "delete_event":
       return <DeleteEventModal {...modalProps} />;
+    case "calendar_trade_color_settings":
+      return <CalendarTradeColorSettingsModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
     default:

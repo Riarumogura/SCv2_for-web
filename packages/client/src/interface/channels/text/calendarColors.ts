@@ -1,7 +1,8 @@
-// CUSTOM: カレンダー機能で使う表示用の定数(色のラベル/16進値、繰り返し・リマインダーのラベル、日時フォーマット変換)
-import { EventColor, RepeatOption, ReminderMinutes } from "../../../api/calendar";
+// CUSTOM: カレンダー機能で使う表示用の定数(色のラベル/16進値、繰り返し・リマインダー・
+// 編集権限のラベル、日時フォーマット変換)
+import { TradeColor, RepeatOption, ReminderMinutes, EditPermission } from "../../../api/calendar";
 
-export const EVENT_COLOR_LABELS: Record<EventColor, string> = {
+export const TRADE_COLOR_LABELS: Record<TradeColor, string> = {
   red: "赤",
   orange: "オレンジ",
   yellow: "黄",
@@ -10,7 +11,7 @@ export const EVENT_COLOR_LABELS: Record<EventColor, string> = {
   purple: "紫",
 };
 
-export const EVENT_COLOR_HEX: Record<EventColor, string> = {
+export const TRADE_COLOR_HEX: Record<TradeColor, string> = {
   red: "#e53935",
   orange: "#fb8c00",
   yellow: "#fbc02d",
@@ -32,6 +33,11 @@ export const REMINDER_LABELS: Record<ReminderMinutes, string> = {
   30: "30分前",
   60: "1時間前",
   1440: "1日前",
+};
+
+export const EDIT_PERMISSION_LABELS: Record<EditPermission, string> = {
+  anyone: "全員編集可",
+  creator_only: "作成者のみ編集可",
 };
 
 /**

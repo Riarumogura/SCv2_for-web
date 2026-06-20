@@ -285,6 +285,14 @@ export const ServerSidebar = (props: Props) => {
     requestOpenCalendar({ serverId: props.server.id });
   };
 
+  // CUSTOM: トレードカラー設定モーダルを開く
+  const openTradeColorSettings = () => {
+    openModal({
+      type: "calendar_trade_color_settings",
+      serverId: props.server.id,
+    });
+  };
+
   return (
     <SidebarBase use:floating={props.menuGenerator(props.server)}>
       <Switch
@@ -342,13 +350,25 @@ export const ServerSidebar = (props: Props) => {
           )}
         </Draggable>
 
-        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示) */}
-        <CalendarMenuButton onClick={openCalendar}>
-          <Row align gap="sm">
-            <MdCalendar {...iconSize(16)} />
-            <span style={{ "font-weight": "bold" }}>カレンダー</span>
-          </Row>
-        </CalendarMenuButton>
+        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示)。右に
+            トレードカラー設定用の歯車アイコンを配置する */}
+        <CalendarMenuRow>
+          <CalendarMenuButton onClick={openCalendar}>
+            <Row align gap="sm">
+              <MdCalendar {...iconSize(16)} />
+              <span style={{ "font-weight": "bold" }}>カレンダー</span>
+            </Row>
+          </CalendarMenuButton>
+          <Tooltip content="トレードカラー設定" placement="top">
+            <IconButton
+              size="xs"
+              variant="standard"
+              onPress={openTradeColorSettings}
+            >
+              <Symbol size={16}>settings</Symbol>
+            </IconButton>
+          </Tooltip>
+        </CalendarMenuRow>
 
         {/* CUSTOM: ストレージメニューセクション */}
         <StorageSection>
@@ -796,11 +816,20 @@ const ChannelIcon = styled("img", {
 });
 
 // CUSTOM: カレンダーメニューボタンのスタイル(ストレージセクションと統一感のある見た目)
+const CalendarMenuRow = styled("div", {
+  base: {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--gap-xs)",
+    marginTop: "var(--gap-lg)",
+  },
+});
+
 const CalendarMenuButton = styled("button", {
   base: {
     display: "flex",
-    width: "100%",
-    marginTop: "var(--gap-lg)",
+    flex: "1 1 auto",
+    minWidth: 0,
     padding: "var(--gap-sm)",
     borderRadius: "var(--borderRadius-sm)",
     background: "var(--md-sys-color-surface-container-low)",

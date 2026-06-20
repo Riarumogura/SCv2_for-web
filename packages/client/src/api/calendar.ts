@@ -2,7 +2,9 @@
 import env from "@revolt/common/lib/env";
 import { useClient } from "@revolt/client";
 
-export const EVENT_COLORS = [
+// CUSTOM: 元はイベントごとの手動カラーの選択肢だったが、現在はユーザーの
+// 「トレードカラー」の選択肢としても使う共通パレット。
+export const TRADE_COLORS = [
   "red",
   "orange",
   "yellow",
@@ -10,13 +12,16 @@ export const EVENT_COLORS = [
   "blue",
   "purple",
 ] as const;
-export type EventColor = (typeof EVENT_COLORS)[number];
+export type TradeColor = (typeof TRADE_COLORS)[number];
 
 export const REPEAT_OPTIONS = ["none", "daily", "weekly", "monthly"] as const;
 export type RepeatOption = (typeof REPEAT_OPTIONS)[number];
 
 export const REMINDER_MINUTES_OPTIONS = [5, 15, 30, 60, 1440] as const;
 export type ReminderMinutes = (typeof REMINDER_MINUTES_OPTIONS)[number];
+
+export const EDIT_PERMISSIONS = ["anyone", "creator_only"] as const;
+export type EditPermission = (typeof EDIT_PERMISSIONS)[number];
 
 export interface CalendarEvent {
   id: string;
@@ -26,8 +31,11 @@ export interface CalendarEvent {
   location?: string;
   startAt: string;
   endAt: string;
-  color: EventColor;
+  // CUSTOM: 予定の色は保存値ではなく、作成者の現在のトレードカラーから
+  // サーバー側で動的に解決された値(常にAPIレスポンスに含まれる)
+  color: TradeColor;
   repeat: RepeatOption;
+  editPermission: EditPermission;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -39,11 +47,16 @@ export interface CreateEventRequest {
   location?: string;
   startAt: string;
   endAt: string;
-  color?: EventColor;
   repeat?: RepeatOption;
+  editPermission?: EditPermission;
 }
 
 export type UpdateEventRequest = Partial<CreateEventRequest>;
+
+export interface TradeColorAssignment {
+  userId: string;
+  color: TradeColor;
+}
 
 /**
  * カレンダーAPIクライアント
@@ -83,6 +96,45 @@ export class CalendarApiClient {
   }
 
   /**
+   * サーバー内のトレードカラー割り当て一覧を取得
+   */
+  async getTradeColors(serverId: string): Promise<TradeColorAssignment[]> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/trade-colors`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`トレードカラー一覧の取得に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * 自分のトレードカラーを設定/変更する
+   * @throws 既に他のユーザーが使用している色を指定した場合(409)
+   */
+  async setMyTradeColor(serverId: string, color: TradeColor): Promise<TradeColorAssignment> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/trade-colors/me`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ color }),
+    });
+
+    if (response.status === 409) {
+      throw new Error("このトレードカラーは既に他のユーザーが使用しています");
+    }
+    if (!response.ok) {
+      throw new Error(`トレードカラーの設定に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * 指定期間内の予定一覧を取得
    */
   async getEvents(serverId: string, from: Date, to: Date): Promise<CalendarEvent[]> {
@@ -105,6 +157,7 @@ export class CalendarApiClient {
 
   /**
    * 予定を作成
+   * @throws トレードカラー未設定の場合(400)
    */
   async createEvent(serverId: string, data: CreateEventRequest): Promise<CalendarEvent> {
     const headers = await this.getAuthHeaders(serverId);
@@ -114,6 +167,10 @@ export class CalendarApiClient {
       body: JSON.stringify(data),
     });
 
+    if (response.status === 400) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || "予定の作成に失敗しました");
+    }
     if (!response.ok) {
       throw new Error(`予定の作成に失敗しました: ${response.status}`);
     }
@@ -140,6 +197,7 @@ export class CalendarApiClient {
 
   /**
    * 予定を更新
+   * @throws 編集権限が無い場合(403)
    */
   async updateEvent(
     serverId: string,
@@ -153,6 +211,10 @@ export class CalendarApiClient {
       body: JSON.stringify(data),
     });
 
+    if (response.status === 403) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || "この予定を編集する権限がありません");
+    }
     if (!response.ok) {
       throw new Error(`予定の更新に失敗しました: ${response.status}`);
     }
@@ -162,6 +224,7 @@ export class CalendarApiClient {
 
   /**
    * 予定を削除
+   * @throws 編集権限が無い場合(403)
    */
   async deleteEvent(serverId: string, eventId: string): Promise<void> {
     const headers = await this.getAuthHeaders(serverId);
@@ -171,6 +234,10 @@ export class CalendarApiClient {
       headers: restHeaders,
     });
 
+    if (response.status === 403) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || "この予定を削除する権限がありません");
+    }
     if (!response.ok) {
       throw new Error(`予定の削除に失敗しました: ${response.status}`);
     }

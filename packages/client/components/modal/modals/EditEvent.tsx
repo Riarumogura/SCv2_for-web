@@ -2,22 +2,28 @@
 // CUSTOM: lingui(<Trans>/t)はi18nカタログ未コンパイルのためハッシュ文字列で表示されてしまう
 // (storage系モーダルの既知バグと同種)。この機能では日本語をハードコードして回避する。
 import { createFormControl, createFormGroup } from "solid-forms";
-import { For, onMount } from "solid-js";
+import { For, Show, onMount } from "solid-js";
 
+import { useClient } from "@revolt/client";
 import { Column, Dialog, DialogProps, Form2, MenuItem } from "@revolt/ui";
 
 import { useModals } from "..";
 import { Modals } from "../types";
 import {
   useCalendarApi,
-  EVENT_COLORS,
   REPEAT_OPTIONS,
   REMINDER_MINUTES_OPTIONS,
-  EventColor,
+  EDIT_PERMISSIONS,
   RepeatOption,
   ReminderMinutes,
+  EditPermission,
 } from "../../../src/api/calendar";
-import { toDatetimeLocalValue, EVENT_COLOR_LABELS, REPEAT_LABELS, REMINDER_LABELS } from "../../../src/interface/channels/text/calendarColors";
+import {
+  toDatetimeLocalValue,
+  REPEAT_LABELS,
+  REMINDER_LABELS,
+  EDIT_PERMISSION_LABELS,
+} from "../../../src/interface/channels/text/calendarColors";
 
 const NO_REMINDER = "none";
 
@@ -29,6 +35,9 @@ export function EditEventModal(
 ) {
   const { showError } = useModals();
   const calendarApi = useCalendarApi();
+  const client = useClient();
+  const myId = client().user!.id;
+  const isCreator = () => props.event.createdBy === myId;
 
   const group = createFormGroup({
     title: createFormControl(props.event.title, { required: true }),
@@ -40,8 +49,8 @@ export function EditEventModal(
     }),
     description: createFormControl(props.event.description ?? ""),
     location: createFormControl(props.event.location ?? ""),
-    color: createFormControl<EventColor>(props.event.color),
     repeat: createFormControl<RepeatOption>(props.event.repeat),
+    editPermission: createFormControl<EditPermission>(props.event.editPermission),
     reminder: createFormControl<string>(NO_REMINDER),
   });
 
@@ -73,8 +82,10 @@ export function EditEventModal(
         location: group.controls.location.value || undefined,
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
-        color: group.controls.color.value,
         repeat: group.controls.repeat.value,
+        // CUSTOM: 編集権限の変更は作成者のみ送信する(バックエンドも作成者以外を403にするが、
+        // 作成者でない場合はそもそも値を変えていないので送らなくてよい)
+        ...(isCreator() ? { editPermission: group.controls.editPermission.value } : {}),
       });
 
       if (group.controls.reminder.value === NO_REMINDER) {
@@ -153,17 +164,28 @@ export function EditEventModal(
             label="説明(任意)"
           />
 
-          <Form2.Select label="カラー" control={group.controls.color}>
-            <For each={EVENT_COLORS}>
-              {(color) => <MenuItem value={color}>{EVENT_COLOR_LABELS[color]}</MenuItem>}
-            </For>
-          </Form2.Select>
-
           <Form2.Select label="繰り返し" control={group.controls.repeat}>
             <For each={REPEAT_OPTIONS}>
               {(option) => <MenuItem value={option}>{REPEAT_LABELS[option]}</MenuItem>}
             </For>
           </Form2.Select>
+
+          {/* CUSTOM: 編集権限自体の変更は作成者のみ(他者は閲覧のみ、変更不可) */}
+          <Show
+            when={isCreator()}
+            fallback={
+              <div style={{ "font-size": "12px", color: "var(--md-sys-color-on-surface-variant)" }}>
+                他のユーザーの編集: {EDIT_PERMISSION_LABELS[group.controls.editPermission.value]}
+                (作成者のみ変更可能)
+              </div>
+            }
+          >
+            <Form2.Select label="他のユーザーの編集を許可" control={group.controls.editPermission}>
+              <For each={EDIT_PERMISSIONS}>
+                {(option) => <MenuItem value={option}>{EDIT_PERMISSION_LABELS[option]}</MenuItem>}
+              </For>
+            </Form2.Select>
+          </Show>
 
           <Form2.Select label="リマインダー(アプリ内通知)" control={group.controls.reminder}>
             <MenuItem value={NO_REMINDER}>通知しない</MenuItem>

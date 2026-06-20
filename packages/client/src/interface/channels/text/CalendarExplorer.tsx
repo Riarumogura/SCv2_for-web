@@ -9,12 +9,13 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
+import { useClient } from "@revolt/client";
 import { useModals } from "@revolt/modal";
 import { IconButton, Tooltip, useSnackbar } from "@revolt/ui";
 import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import { useCalendarApi, CalendarEvent } from "../../../api/calendar";
-import { EVENT_COLOR_HEX, REMINDER_LABELS } from "./calendarColors";
+import { TRADE_COLOR_HEX, REMINDER_LABELS } from "./calendarColors";
 
 // CUSTOM: Web Push未対応のため、パネル表示中のみ定期ポーリングでアプリ内通知を出す
 const REMINDER_POLL_INTERVAL_MS = 30_000;
@@ -30,6 +31,12 @@ export function CalendarExplorer(props: CalendarExplorerProps) {
   const calendarApi = useCalendarApi();
   const { openModal } = useModals();
   const snackbar = useSnackbar();
+  const client = useClient();
+  const myId = client().user!.id;
+
+  // CUSTOM: editPermissionが'creator_only'の予定は作成者本人しか編集・削除できない
+  const canEdit = (event: CalendarEvent) =>
+    event.createdBy === myId || event.editPermission === "anyone";
 
   let containerRef: HTMLDivElement | undefined;
   let calendar: Calendar | undefined;
@@ -50,8 +57,8 @@ export function CalendarExplorer(props: CalendarExplorerProps) {
         title: event.title,
         start: event.startAt,
         end: event.endAt,
-        backgroundColor: EVENT_COLOR_HEX[event.color],
-        borderColor: EVENT_COLOR_HEX[event.color],
+        backgroundColor: TRADE_COLOR_HEX[event.color],
+        borderColor: TRADE_COLOR_HEX[event.color],
       }));
     } catch (error) {
       console.error("予定一覧の取得に失敗しました:", error);
@@ -115,7 +122,16 @@ export function CalendarExplorer(props: CalendarExplorerProps) {
       dateClick: (info) => openCreateModal(info.dateStr),
       eventClick: (info) => {
         const event = eventsById.get(info.event.id);
-        if (event) openEditModal(event);
+        if (!event) return;
+        if (!canEdit(event)) {
+          snackbar.show({
+            message: "この予定は作成者のみ編集できます",
+            autoCloseDelay: 5000,
+            closeable: true,
+          });
+          return;
+        }
+        openEditModal(event);
       },
       eventContent: (arg) => {
         const container = document.createElement("div");
@@ -126,17 +142,20 @@ export function CalendarExplorer(props: CalendarExplorerProps) {
         title.textContent = arg.event.title;
         container.appendChild(title);
 
-        const deleteButton = document.createElement("button");
-        deleteButton.type = "button";
-        deleteButton.className = "sc-calendar-event-delete";
-        deleteButton.textContent = "×";
-        deleteButton.title = "削除";
-        deleteButton.addEventListener("click", (clickEvent) => {
-          clickEvent.stopPropagation();
-          const event = eventsById.get(arg.event.id);
-          if (event) openDeleteModal(event);
-        });
-        container.appendChild(deleteButton);
+        const event = eventsById.get(arg.event.id);
+        if (event && canEdit(event)) {
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "sc-calendar-event-delete";
+          deleteButton.textContent = "×";
+          deleteButton.title = "削除";
+          deleteButton.addEventListener("click", (clickEvent) => {
+            clickEvent.stopPropagation();
+            const target = eventsById.get(arg.event.id);
+            if (target) openDeleteModal(target);
+          });
+          container.appendChild(deleteButton);
+        }
 
         return { domNodes: [container] };
       },

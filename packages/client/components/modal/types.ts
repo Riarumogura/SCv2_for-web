@@ -399,4 +399,9 @@ export type Modals =
       eventId: string;
       eventTitle: string;
       onDeleted?: () => void;
+    }
+  | {
+      type: "calendar_trade_color_settings";
+      serverId: string;
+      onChanged?: () => void;
     };

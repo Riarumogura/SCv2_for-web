@@ -2,22 +2,28 @@
 // CUSTOM: lingui(<Trans>/t)はi18nカタログ未コンパイルのためハッシュ文字列で表示されてしまう
 // (storage系モーダルの既知バグと同種)。この機能では日本語をハードコードして回避する。
 import { createFormControl, createFormGroup } from "solid-forms";
-import { For } from "solid-js";
+import { For, Show, createResource } from "solid-js";
 
+import { useClient } from "@revolt/client";
 import { Column, Dialog, DialogProps, Form2, MenuItem } from "@revolt/ui";
 
 import { useModals } from "..";
 import { Modals } from "../types";
 import {
   useCalendarApi,
-  EVENT_COLORS,
   REPEAT_OPTIONS,
   REMINDER_MINUTES_OPTIONS,
-  EventColor,
+  EDIT_PERMISSIONS,
   RepeatOption,
   ReminderMinutes,
+  EditPermission,
 } from "../../../src/api/calendar";
-import { toDatetimeLocalValue, EVENT_COLOR_LABELS, REPEAT_LABELS, REMINDER_LABELS } from "../../../src/interface/channels/text/calendarColors";
+import {
+  toDatetimeLocalValue,
+  REPEAT_LABELS,
+  REMINDER_LABELS,
+  EDIT_PERMISSION_LABELS,
+} from "../../../src/interface/channels/text/calendarColors";
 
 const NO_REMINDER = "none";
 
@@ -29,6 +35,14 @@ export function CreateEventModal(
 ) {
   const { showError } = useModals();
   const calendarApi = useCalendarApi();
+  const client = useClient();
+  const myId = client().user!.id;
+
+  // CUSTOM: 予定の色は作成者のトレードカラーから自動的に決まるため、
+  // 未設定のユーザーには先に設定してもらう必要がある(サイドバーの歯車アイコンから設定)
+  const [tradeColors] = createResource(() => calendarApi.getTradeColors(props.serverId));
+  const myTradeColor = () => tradeColors()?.find((a) => a.userId === myId)?.color ?? null;
+  const hasTradeColor = () => tradeColors() !== undefined && myTradeColor() !== null;
 
   const initialStart = props.initialDate
     ? new Date(props.initialDate)
@@ -45,8 +59,8 @@ export function CreateEventModal(
     }),
     description: createFormControl(""),
     location: createFormControl(""),
-    color: createFormControl<EventColor>("blue"),
     repeat: createFormControl<RepeatOption>("none"),
+    editPermission: createFormControl<EditPermission>("creator_only"),
     reminder: createFormControl<string>(NO_REMINDER),
   });
 
@@ -66,8 +80,8 @@ export function CreateEventModal(
         location: group.controls.location.value || undefined,
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
-        color: group.controls.color.value,
         repeat: group.controls.repeat.value,
+        editPermission: group.controls.editPermission.value,
       });
 
       if (group.controls.reminder.value !== NO_REMINDER) {
@@ -100,13 +114,19 @@ export function CreateEventModal(
             onSubmit();
             return false;
           },
-          isDisabled: !Form2.canSubmit(group),
+          isDisabled: !Form2.canSubmit(group) || !hasTradeColor(),
         },
       ]}
       isDisabled={group.isPending}
     >
       <form onSubmit={submit}>
         <Column>
+          <Show when={tradeColors() !== undefined && !hasTradeColor()}>
+            <div style={{ color: "var(--md-sys-color-error)", "font-size": "13px" }}>
+              予定を作成する前にトレードカラーを設定してください(サイドバーの「カレンダー」横の歯車アイコンから設定できます)
+            </div>
+          </Show>
+
           <Form2.TextField
             minlength={1}
             maxlength={200}
@@ -145,15 +165,15 @@ export function CreateEventModal(
             label="説明(任意)"
           />
 
-          <Form2.Select label="カラー" control={group.controls.color}>
-            <For each={EVENT_COLORS}>
-              {(color) => <MenuItem value={color}>{EVENT_COLOR_LABELS[color]}</MenuItem>}
-            </For>
-          </Form2.Select>
-
           <Form2.Select label="繰り返し" control={group.controls.repeat}>
             <For each={REPEAT_OPTIONS}>
               {(option) => <MenuItem value={option}>{REPEAT_LABELS[option]}</MenuItem>}
+            </For>
+          </Form2.Select>
+
+          <Form2.Select label="他のユーザーの編集を許可" control={group.controls.editPermission}>
+            <For each={EDIT_PERMISSIONS}>
+              {(option) => <MenuItem value={option}>{EDIT_PERMISSION_LABELS[option]}</MenuItem>}
             </For>
           </Form2.Select>
 
