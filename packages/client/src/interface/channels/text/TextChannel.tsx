@@ -35,11 +35,16 @@ import {
   consumePendingStorageOpen,
   pendingStorageOpen,
 } from "../../../api/storageExplorerSignal";
+import {
+  consumePendingCalendarOpen,
+  pendingCalendarOpen,
+} from "../../../api/calendarExplorerSignal";
 
 import { MessageComposition } from "./Composition";
 import { MemberSidebar } from "./MemberSidebar";
 import { TextSearchSidebar } from "./TextSearchSidebar";
 import { StorageExplorer } from "./StorageExplorer";
+import { CalendarExplorer } from "./CalendarExplorer";
 
 /**
  * State of the channel sidebar
@@ -55,6 +60,9 @@ export type SidebarState =
   | {
       state: "storage";
       storageId: string;
+    }
+  | {
+      state: "calendar";
     }
   | {
       state: "default";
@@ -175,6 +183,15 @@ export function TextChannel(props: ChannelPageProps) {
     }
   });
 
+  // CUSTOM: ServerSidebarのカレンダーメニュークリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    const request = pendingCalendarOpen();
+    if (request && request.serverId === props.channel.serverId) {
+      setSidebarState({ state: "calendar" });
+      consumePendingCalendarOpen();
+    }
+  });
+
   return (
     <>
       <Header placement="primary">
@@ -248,7 +265,14 @@ export function TextChannel(props: ChannelPageProps) {
               class: sidebar(),
             }}
             style={{
-              width: sidebarState().state !== "default" ? "360px" : "",
+              // CUSTOM: カレンダーは月表示等を表示するためデフォルトの360pxでは狭すぎるので、
+              // 仕様の「画面右半分」に近づけて画面幅の50%(最小480px)を確保する
+              width:
+                sidebarState().state === "calendar"
+                  ? "clamp(480px, 50vw, 720px)"
+                  : sidebarState().state !== "default"
+                    ? "360px"
+                    : "",
             }}
           >
             <Switch
@@ -299,6 +323,25 @@ export function TextChannel(props: ChannelPageProps) {
                     serverId={props.channel.serverId}
                     storageId={(sidebarState() as { storageId: string }).storageId}
                   />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "calendar"}>
+                {/* CUSTOM: WideSidebarContainerは幅360px固定だが、カレンダーは外側のスクロール
+                    コンテナ側でclamp(480px, 50vw, 720px)に広げているため、幅100%で追従させる */}
+                <WideSidebarContainer
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    "flex-direction": "column",
+                  }}
+                >
+                  <SidebarTitle>
+                    <Text class="label" size="large">
+                      カレンダー
+                    </Text>
+                  </SidebarTitle>
+                  <CalendarExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
             </Switch>

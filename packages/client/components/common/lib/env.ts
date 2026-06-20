@@ -59,6 +59,13 @@ export default {
     (import.meta.env.VITE_STORAGE_API_URL as string) ??
     "http://local.sawarachats.chat/storage/api/v1",
   /**
+   * What calendar API server to connect to by default.
+   */
+  DEFAULT_CALENDAR_API_URL:
+    (import.meta.env.DEV ? import.meta.env.VITE_DEV_CALENDAR_API_URL : undefined) ??
+    (import.meta.env.VITE_CALENDAR_API_URL as string) ??
+    "http://local.sawarachats.chat/calendar/api/v1",
+  /**
    * hCaptcha site key to use if enabled
    */
   HCAPTCHA_SITEKEY: import.meta.env.VITE_HCAPTCHA_SITEKEY as string,

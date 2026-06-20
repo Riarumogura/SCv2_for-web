@@ -42,9 +42,11 @@ import MdChevronRight from "@material-design-icons/svg/filled/chevron_right.svg?
 
 import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?component-solid";
 import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
+import MdCalendar from "@material-symbols/svg-400/outlined/calendar_month-fill.svg?component-solid";
 
 import { useStorageApi, StorageConfig } from "../../../api/storage";
 import { requestOpenStorage } from "../../../api/storageExplorerSignal";
+import { requestOpenCalendar } from "../../../api/calendarExplorerSignal";
 
 import { SidebarBase } from "./common";
 
@@ -278,6 +280,11 @@ export const ServerSidebar = (props: Props) => {
     requestOpenStorage({ serverId: props.server.id, storageId });
   };
 
+  // CUSTOM: カレンダーを開く
+  const openCalendar = () => {
+    requestOpenCalendar({ serverId: props.server.id });
+  };
+
   return (
     <SidebarBase use:floating={props.menuGenerator(props.server)}>
       <Switch
@@ -334,6 +341,14 @@ export const ServerSidebar = (props: Props) => {
             />
           )}
         </Draggable>
+
+        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示) */}
+        <CalendarMenuButton onClick={openCalendar}>
+          <Row align gap="sm">
+            <MdCalendar {...iconSize(16)} />
+            <span style={{ "font-weight": "bold" }}>カレンダー</span>
+          </Row>
+        </CalendarMenuButton>
 
         {/* CUSTOM: ストレージメニューセクション */}
         <StorageSection>
@@ -777,6 +792,28 @@ const ChannelIcon = styled("img", {
     width: "16px",
     height: "16px",
     objectFit: "contain",
+  },
+});
+
+// CUSTOM: カレンダーメニューボタンのスタイル(ストレージセクションと統一感のある見た目)
+const CalendarMenuButton = styled("button", {
+  base: {
+    display: "flex",
+    width: "100%",
+    marginTop: "var(--gap-lg)",
+    padding: "var(--gap-sm)",
+    borderRadius: "var(--borderRadius-sm)",
+    background: "var(--md-sys-color-surface-container-low)",
+    border: "1px solid var(--md-sys-color-outline-variant)",
+    cursor: "pointer",
+    transition: "var(--transitions-fast) background",
+    color: "inherit",
+    font: "inherit",
+    textAlign: "left",
+
+    "&:hover": {
+      background: "var(--md-sys-color-surface-container-highest)",
+    },
   },
 });
 

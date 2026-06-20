@@ -65,6 +65,9 @@ import { EditStorageModal } from "./modals/EditStorage";
 import { DeleteStorageModal } from "./modals/DeleteStorage";
 import { SelectFolderModal } from "./modals/SelectFolder";
 import { StoragePreviewModal } from "./modals/StoragePreview";
+import { CreateEventModal } from "./modals/CreateEvent";
+import { EditEventModal } from "./modals/EditEvent";
+import { DeleteEventModal } from "./modals/DeleteEvent";
 
 /**
  * Render the modal
@@ -206,6 +209,12 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <DeleteStorageModal {...modalProps} />;
     case "select_folder":
       return <SelectFolderModal {...modalProps} />;
+    case "create_event":
+      return <CreateEventModal {...modalProps} />;
+    case "edit_event":
+      return <EditEventModal {...modalProps} />;
+    case "delete_event":
+      return <DeleteEventModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
     default:

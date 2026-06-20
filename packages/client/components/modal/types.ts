@@ -27,6 +27,7 @@ import { ScreenShareQualityName } from "@revolt/state/stores/Voice";
 
 import type { ChangelogResponse } from "./modals/Changelog";
 import type { StorageConfig } from "../../src/api/storage";
+import type { CalendarEvent } from "../../src/api/calendar";
 
 export type Modals =
   | {
@@ -379,4 +380,23 @@ export type Modals =
       storageId: string;
       path: string;
       name: string;
+    }
+  | {
+      type: "create_event";
+      serverId: string;
+      initialDate?: string;
+      onCreated?: () => void;
+    }
+  | {
+      type: "edit_event";
+      serverId: string;
+      event: CalendarEvent;
+      onUpdated?: () => void;
+    }
+  | {
+      type: "delete_event";
+      serverId: string;
+      eventId: string;
+      eventTitle: string;
+      onDeleted?: () => void;
     };
