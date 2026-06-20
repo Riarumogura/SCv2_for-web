@@ -354,11 +354,21 @@ export function TextChannel(props: ChannelPageProps) {
               </Match>
               <Match when={sidebarState().state === "storage"}>
                 <WideSidebarContainer>
-                  <SidebarTitle>
+                  <SidebarHeaderRow>
                     <Text class="label" size="large">
                       ストレージエクスプローラー
                     </Text>
-                  </SidebarTitle>
+                    {/* CUSTOM: ストレージを閉じてチャットのみの表示に戻すボタン */}
+                    <Tooltip content="ストレージを閉じる" placement="top">
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => setSidebarState({ state: "default" })}
+                      >
+                        <Symbol size={16}>close</Symbol>
+                      </IconButton>
+                    </Tooltip>
+                  </SidebarHeaderRow>
                   {/* CUSTOM: ストレージエクスプローラーコンポーネントをここに追加 */}
                   <StorageExplorer
                     serverId={props.channel.serverId}
@@ -377,7 +387,7 @@ export function TextChannel(props: ChannelPageProps) {
                     "flex-direction": "column",
                   }}
                 >
-                  <CalendarSidebarHeader>
+                  <SidebarHeaderRow>
                     <Text class="label" size="large">
                       カレンダー
                     </Text>
@@ -391,7 +401,7 @@ export function TextChannel(props: ChannelPageProps) {
                         <Symbol size={16}>close</Symbol>
                       </IconButton>
                     </Tooltip>
-                  </CalendarSidebarHeader>
+                  </SidebarHeaderRow>
                   <CalendarExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
@@ -457,8 +467,8 @@ const SidebarTitle = styled("div", {
   },
 });
 
-// CUSTOM: カレンダーパネル用のタイトル行(右端に閉じるボタンを置くためflexにする)
-const CalendarSidebarHeader = styled("div", {
+// CUSTOM: 閉じるボタンを右端に置くサイドバータイトル行(カレンダー・ストレージで共用)
+const SidebarHeaderRow = styled("div", {
   base: {
     display: "flex",
     alignItems: "center",
