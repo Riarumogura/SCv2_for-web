@@ -350,25 +350,43 @@ export const ServerSidebar = (props: Props) => {
           )}
         </Draggable>
 
-        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示)。右に
-            トレードカラー設定用の歯車アイコンを配置する */}
-        <CalendarMenuRow>
-          <CalendarMenuButton onClick={openCalendar}>
-            <Row align gap="sm">
-              <MdCalendar {...iconSize(16)} />
-              <span style={{ "font-weight": "bold" }}>カレンダー</span>
-            </Row>
-          </CalendarMenuButton>
-          <Tooltip content="トレードカラー設定" placement="top">
-            <IconButton
-              size="xs"
-              variant="standard"
-              onPress={openTradeColorSettings}
-            >
-              <Symbol size={16}>settings</Symbol>
-            </IconButton>
-          </Tooltip>
-        </CalendarMenuRow>
+        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示)。歯車アイコンは
+            同じ枠内の右端に配置する(ネストしたbuttonを避けるためdivをクリック領域にする)。
+            親div(use:floating)がチャンネル/カテゴリ用の右クリックメニューをこのメニュー上でも
+            開いてしまう。use:floatingはcontextmenuをbubbleフェーズで処理するため、
+            onContextMenu(bubbleフェーズ)でのstopPropagationでは止まらない場合があるので、
+            ここではcaptureフェーズのリスナーを直接付けてイベントが親まで届く前に止める */}
+        <CalendarMenuButton
+          onClick={openCalendar}
+          ref={(el) => {
+            el.addEventListener(
+              "contextmenu",
+              (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              },
+              { capture: true },
+            );
+          }}
+        >
+          <Row align gap="sm">
+            <MdCalendar {...iconSize(16)} />
+            <span style={{ "font-weight": "bold" }}>カレンダー</span>
+          </Row>
+          {/* CUSTOM: IconButtonの型はonClickを受け付けないため、divでラップして
+              クリックの伝播を止め、親(カレンダーを開く)が発火しないようにする */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <Tooltip content="トレードカラー設定" placement="top">
+              <IconButton
+                size="xs"
+                variant="standard"
+                onPress={openTradeColorSettings}
+              >
+                <Symbol size={16}>settings</Symbol>
+              </IconButton>
+            </Tooltip>
+          </div>
+        </CalendarMenuButton>
 
         {/* CUSTOM: ストレージメニューセクション */}
         <StorageSection>
@@ -815,21 +833,17 @@ const ChannelIcon = styled("img", {
   },
 });
 
-// CUSTOM: カレンダーメニューボタンのスタイル(ストレージセクションと統一感のある見た目)
-const CalendarMenuRow = styled("div", {
+// CUSTOM: カレンダーメニューボタンのスタイル(ストレージセクションと統一感のある見た目)。
+// 歯車アイコンも同じ枠内に収めるため、ボタンではなくdivをクリック領域として使う
+// (button要素の中にIconButtonのbuttonをネストできないため)
+const CalendarMenuButton = styled("div", {
   base: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: "var(--gap-xs)",
+    width: "100%",
     marginTop: "var(--gap-lg)",
-  },
-});
-
-const CalendarMenuButton = styled("button", {
-  base: {
-    display: "flex",
-    flex: "1 1 auto",
-    minWidth: 0,
     padding: "var(--gap-sm)",
     borderRadius: "var(--borderRadius-sm)",
     background: "var(--md-sys-color-surface-container-low)",

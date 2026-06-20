@@ -119,7 +119,10 @@ export function CreateEventModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      {/* CUSTOM: IME変換確定のEnterで暗黙的にフォームがsubmitされ、入力途中で
+          予定が作成されてしまう不具合の対策。送信は実際にはDialogのアクション
+          ボタンが直接onSubmit()を呼ぶため、フォーム自体のEnter submitは不要 */}
+      <form onSubmit={submit} onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}>
         <Column>
           <Show when={tradeColors() !== undefined && !hasTradeColor()}>
             <div style={{ color: "var(--md-sys-color-error)", "font-size": "13px" }}>

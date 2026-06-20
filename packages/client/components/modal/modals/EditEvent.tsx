@@ -125,7 +125,10 @@ export function EditEventModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      {/* CUSTOM: IME変換確定のEnterで暗黙的にフォームがsubmitされ、入力途中で
+          更新されてしまう不具合の対策。送信は実際にはDialogのアクション
+          ボタンが直接onSubmit()を呼ぶため、フォーム自体のEnter submitは不要 */}
+      <form onSubmit={submit} onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}>
         <Column>
           <Form2.TextField
             minlength={1}

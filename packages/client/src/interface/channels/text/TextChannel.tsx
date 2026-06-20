@@ -21,12 +21,15 @@ import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
 import {
   BelowFloatingHeader,
   Header,
+  IconButton,
   NewMessages,
   Text,
+  Tooltip,
   TypingIndicator,
   main,
 } from "@revolt/ui";
 import { VoiceChannelCallCardMount } from "@revolt/ui/components/features/voice/callCard/VoiceCallCard";
+import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import { ChannelHeader } from "../ChannelHeader";
 import { ChannelPageProps } from "../ChannelPage";
@@ -166,6 +169,39 @@ export function TextChannel(props: ChannelPageProps) {
     state: "default",
   });
 
+  // CUSTOM: カレンダーパネルの幅をユーザーがドラッグで調整できるようにする
+  const [calendarWidth, setCalendarWidth] = createSignal(640);
+  let resizingCalendar = false;
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
+
+  function onCalendarResizeMove(e: MouseEvent) {
+    if (!resizingCalendar) return;
+    // パネルは画面右側に固定されているため、左端を左にドラッグするほど幅が増える
+    const delta = resizeStartX - e.clientX;
+    setCalendarWidth(Math.min(1000, Math.max(360, resizeStartWidth + delta)));
+  }
+
+  function onCalendarResizeUp() {
+    resizingCalendar = false;
+    window.removeEventListener("mousemove", onCalendarResizeMove);
+    window.removeEventListener("mouseup", onCalendarResizeUp);
+  }
+
+  function onCalendarResizeDown(e: MouseEvent) {
+    e.preventDefault();
+    resizingCalendar = true;
+    resizeStartX = e.clientX;
+    resizeStartWidth = calendarWidth();
+    window.addEventListener("mousemove", onCalendarResizeMove);
+    window.addEventListener("mouseup", onCalendarResizeUp);
+  }
+
+  onCleanup(() => {
+    window.removeEventListener("mousemove", onCalendarResizeMove);
+    window.removeEventListener("mouseup", onCalendarResizeUp);
+  });
+
   // todo: in the future maybe persist per ID?
   createEffect(
     on(
@@ -266,15 +302,20 @@ export function TextChannel(props: ChannelPageProps) {
             }}
             style={{
               // CUSTOM: カレンダーは月表示等を表示するためデフォルトの360pxでは狭すぎるので、
-              // 仕様の「画面右半分」に近づけて画面幅の50%(最小480px)を確保する
+              // ユーザーがドラッグで調整できる幅(calendarWidth)を使う
               width:
                 sidebarState().state === "calendar"
-                  ? "clamp(480px, 50vw, 720px)"
+                  ? `${calendarWidth()}px`
                   : sidebarState().state !== "default"
                     ? "360px"
                     : "",
+              position: sidebarState().state === "calendar" ? "relative" : undefined,
             }}
           >
+            {/* CUSTOM: カレンダーパネルの左端をドラッグして幅を調整するハンドル */}
+            <Show when={sidebarState().state === "calendar"}>
+              <ResizeHandle onMouseDown={onCalendarResizeDown} />
+            </Show>
             <Switch
               fallback={
                 <MemberSidebar
@@ -327,7 +368,7 @@ export function TextChannel(props: ChannelPageProps) {
               </Match>
               <Match when={sidebarState().state === "calendar"}>
                 {/* CUSTOM: WideSidebarContainerは幅360px固定だが、カレンダーは外側のスクロール
-                    コンテナ側でclamp(480px, 50vw, 720px)に広げているため、幅100%で追従させる */}
+                    コンテナ側でcalendarWidthに広げているため、幅100%で追従させる */}
                 <WideSidebarContainer
                   style={{
                     width: "100%",
@@ -336,11 +377,21 @@ export function TextChannel(props: ChannelPageProps) {
                     "flex-direction": "column",
                   }}
                 >
-                  <SidebarTitle>
+                  <CalendarSidebarHeader>
                     <Text class="label" size="large">
                       カレンダー
                     </Text>
-                  </SidebarTitle>
+                    {/* CUSTOM: カレンダーを閉じてチャットのみの表示に戻すボタン */}
+                    <Tooltip content="カレンダーを閉じる" placement="top">
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => setSidebarState({ state: "default" })}
+                      >
+                        <Symbol size={16}>close</Symbol>
+                      </IconButton>
+                    </Tooltip>
+                  </CalendarSidebarHeader>
                   <CalendarExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
@@ -403,5 +454,34 @@ const SidebarTitle = styled("div", {
   base: {
     padding: "var(--gap-md)",
     color: "var(--md-sys-color-on-surface)",
+  },
+});
+
+// CUSTOM: カレンダーパネル用のタイトル行(右端に閉じるボタンを置くためflexにする)
+const CalendarSidebarHeader = styled("div", {
+  base: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "var(--gap-md)",
+    color: "var(--md-sys-color-on-surface)",
+  },
+});
+
+// CUSTOM: カレンダーパネルの幅をドラッグで調整するハンドル(左端に重ねて配置)
+const ResizeHandle = styled("div", {
+  base: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: "6px",
+    cursor: "col-resize",
+    zIndex: 10,
+    transition: "var(--transitions-fast) background",
+
+    "&:hover": {
+      background: "var(--md-sys-color-outline-variant)",
+    },
   },
 });
