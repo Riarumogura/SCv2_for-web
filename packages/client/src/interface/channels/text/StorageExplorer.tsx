@@ -1,5 +1,5 @@
 // CUSTOM: ストレージエクスプローラーコンポーネント
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, on, onCleanup } from "solid-js";
 import { styled } from "styled-system/jsx";
 
 import { useModals } from "@revolt/modal";
@@ -126,11 +126,22 @@ export function StorageExplorer(props: StorageExplorerProps) {
     }
   };
 
-  // コンポーネントマウント時にファイル一覧・ストレージ情報を取得
-  onMount(() => {
-    loadFiles();
-    loadStorageInfo();
-  });
+  // CUSTOM: マウント時だけでなく、表示中に別のストレージへ切り替えられた場合にも
+  // 再取得する必要があるため、props.storageIdを監視するcreateEffectにする
+  // (onMountだとコンポーネントが再マウントされない限り再実行されず、サイドバーで
+  // 別のストレージをクリックしても表示が切り替わらなかった)
+  createEffect(
+    on(
+      () => props.storageId,
+      () => {
+        setCurrentPath("");
+        setSearchQuery("");
+        setSearchResults([]);
+        loadFiles();
+        loadStorageInfo();
+      },
+    ),
+  );
 
   // パンくずリストのパスを分割
   const breadcrumbs = () => {

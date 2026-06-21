@@ -525,6 +525,18 @@ function ServerInfo(
       <ServerName onClick={props.openServerInfo}>
         <TextWithEmoji content={props.server.name} />
       </ServerName>
+      {/* CUSTOM: ストレージ追加・予定変更等が即時反映されないため、サーバー全体を
+          リロードするボタンを設定の歯車の左に追加 */}
+      <Tooltip content="サーバーを再読み込み" placement="top">
+        <IconButton
+          size="xs"
+          width="narrow"
+          variant={props.server.banner ? "_header" : "standard"}
+          onPress={() => window.location.reload()}
+        >
+          <Symbol size={20}>refresh</Symbol>
+        </IconButton>
+      </Tooltip>
       <Show when={props.canManageServer}>
         <IconButton
           size="xs"

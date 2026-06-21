@@ -22,6 +22,8 @@ const REPLACEMENTS = {
   __VITE_CFG_ENABLE_VIDEO__: process.env.VITE_CFG_ENABLE_VIDEO || "",
   __VITE_GIFBOX_URL__: process.env.VITE_GIFBOX_URL || "",
   __VITE_RNNOISE_WORKLET_CDN_URL__: process.env.VITE_RNNOISE_WORKLET_CDN_URL || "",
+  __VITE_STORAGE_API_URL__: process.env.VITE_STORAGE_API_URL || "",
+  __VITE_CALENDAR_API_URL__: process.env.VITE_CALENDAR_API_URL || "",
 };
 
 console.log("Preparing injected build...");
