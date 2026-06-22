@@ -6,6 +6,7 @@ import { For, Show, createSignal } from "solid-js";
 import { styled } from "styled-system/jsx";
 
 import { Column, Dialog, DialogProps, Form2, MenuItem } from "@revolt/ui";
+import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import { useModals } from "..";
 import { Modals } from "../types";
@@ -18,6 +19,13 @@ const TYPE_LABELS: Record<McServerType, string> = {
   NEOFORGE: "NeoForge",
   PAPER: "Paper",
 };
+
+// CUSTOM: 選択済みファイルのサイズを読みやすい単位で表示する
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
 
 type CreateMode = "new" | "upload";
 
@@ -34,6 +42,9 @@ export function CreateMinecraftServerModal(
   const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
   const [uploading, setUploading] = createSignal(false);
   const [uploadProgress, setUploadProgress] = createSignal(0);
+  // CUSTOM: ネイティブのfile inputは見た目がOSデフォルトのままで目立たないため非表示にし、
+  // 代わりにこのボタンクリックでダイアログを開く(StorageExplorer.tsxのアップロードボタンと同じ手法)
+  let fileInputRef: HTMLInputElement | undefined;
 
   const group = createFormGroup({
     name: createFormControl("", { required: true }),
@@ -198,9 +209,25 @@ export function CreateMinecraftServerModal(
             }
           >
             <FileFieldLabel>サーバーファイル(zip)</FileFieldLabel>
+            <FilePickerButton
+              type="button"
+              disabled={uploading()}
+              onClick={() => fileInputRef?.click()}
+            >
+              <Symbol size={18}>upload_file</Symbol>
+              <Show when={selectedFile()} fallback={<span>ファイルを選択...</span>}>
+                {(file) => (
+                  <FileNameText>
+                    {file().name} ({formatFileSize(file().size)})
+                  </FileNameText>
+                )}
+              </Show>
+            </FilePickerButton>
             <input
+              ref={fileInputRef}
               type="file"
               accept=".zip"
+              style={{ display: "none" }}
               disabled={uploading()}
               onChange={(e) => setSelectedFile(e.currentTarget.files?.[0] ?? null)}
             />
@@ -261,6 +288,41 @@ const FileFieldLabel = styled("span", {
   base: {
     fontSize: "12px",
     color: "var(--md-sys-color-on-surface-variant)",
+  },
+});
+
+const FilePickerButton = styled("button", {
+  base: {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--gap-sm)",
+    width: "100%",
+    padding: "var(--gap-sm)",
+    marginTop: "var(--gap-xs)",
+    borderRadius: "var(--borderRadius-sm)",
+    border: "1px dashed var(--md-sys-color-outline-variant)",
+    background: "var(--md-sys-color-surface-container-low)",
+    color: "inherit",
+    cursor: "pointer",
+    fontSize: "13px",
+    textAlign: "left",
+
+    "&:hover": {
+      background: "var(--md-sys-color-surface-container-highest)",
+    },
+
+    "&:disabled": {
+      cursor: "not-allowed",
+      opacity: 0.6,
+    },
+  },
+});
+
+const FileNameText = styled("span", {
+  base: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
 });
 

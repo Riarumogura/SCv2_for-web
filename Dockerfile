@@ -58,7 +58,9 @@ ENV VITE_MC_MANAGER_API_URL=__VITE_MC_MANAGER_API_URL__
 ARG BASE_PATH=/
 ENV BASE_PATH=${BASE_PATH}
 
-RUN pnpm --filter client exec vite build
+# CUSTOM: vite buildがビルド機能の増加に伴いNode既定のヒープ上限(~2GB)に
+# ぶつかってJavaScript heap out of memoryで落ちるようになったため明示的に増やす
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm --filter client exec vite build
 
 # ============================================
 # Stage 2: Minimal runtime image
