@@ -65,6 +65,8 @@ import { EditStorageModal } from "./modals/EditStorage";
 import { DeleteStorageModal } from "./modals/DeleteStorage";
 import { SelectFolderModal } from "./modals/SelectFolder";
 import { StoragePreviewModal } from "./modals/StoragePreview";
+import { CreateMinecraftServerModal } from "./modals/CreateMinecraftServer";
+import { DeleteMinecraftServerModal } from "./modals/DeleteMinecraftServer";
 import { CreateEventModal } from "./modals/CreateEvent";
 import { EditEventModal } from "./modals/EditEvent";
 import { DeleteEventModal } from "./modals/DeleteEvent";
@@ -220,6 +222,10 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <CalendarTradeColorSettingsModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
+    case "create_minecraft_server":
+      return <CreateMinecraftServerModal {...modalProps} />;
+    case "delete_minecraft_server":
+      return <DeleteMinecraftServerModal {...modalProps} />;
     default:
       console.error(
         "Failed to create modal for",

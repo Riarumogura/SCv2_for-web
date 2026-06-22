@@ -42,12 +42,17 @@ import {
   consumePendingCalendarOpen,
   pendingCalendarOpen,
 } from "../../../api/calendarExplorerSignal";
+import {
+  consumePendingMinecraftOpen,
+  pendingMinecraftOpen,
+} from "../../../api/minecraftExplorerSignal";
 
 import { MessageComposition } from "./Composition";
 import { MemberSidebar } from "./MemberSidebar";
 import { TextSearchSidebar } from "./TextSearchSidebar";
 import { StorageExplorer } from "./StorageExplorer";
 import { CalendarExplorer } from "./CalendarExplorer";
+import { MinecraftExplorer } from "./MinecraftExplorer";
 
 /**
  * State of the channel sidebar
@@ -66,6 +71,9 @@ export type SidebarState =
     }
   | {
       state: "calendar";
+    }
+  | {
+      state: "minecraft";
     }
   | {
       state: "default";
@@ -228,6 +236,15 @@ export function TextChannel(props: ChannelPageProps) {
     }
   });
 
+  // CUSTOM: ServerSidebarのMinecraftサーバークリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    const request = pendingMinecraftOpen();
+    if (request && request.serverId === props.channel.serverId) {
+      setSidebarState({ state: "minecraft" });
+      consumePendingMinecraftOpen();
+    }
+  });
+
   return (
     <>
       <Header placement="primary">
@@ -302,13 +319,16 @@ export function TextChannel(props: ChannelPageProps) {
             }}
             style={{
               // CUSTOM: カレンダーは月表示等を表示するためデフォルトの360pxでは狭すぎるので、
-              // ユーザーがドラッグで調整できる幅(calendarWidth)を使う
+              // ユーザーがドラッグで調整できる幅(calendarWidth)を使う。Minecraftパネルは
+              // コンソールログを読みやすくするため固定で480pxにする
               width:
                 sidebarState().state === "calendar"
                   ? `${calendarWidth()}px`
-                  : sidebarState().state !== "default"
-                    ? "360px"
-                    : "",
+                  : sidebarState().state === "minecraft"
+                    ? "480px"
+                    : sidebarState().state !== "default"
+                      ? "360px"
+                      : "",
               position: sidebarState().state === "calendar" ? "relative" : undefined,
             }}
           >
@@ -403,6 +423,26 @@ export function TextChannel(props: ChannelPageProps) {
                     </Tooltip>
                   </SidebarHeaderRow>
                   <CalendarExplorer serverId={props.channel.serverId} />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "minecraft"}>
+                <WideSidebarContainer>
+                  <SidebarHeaderRow>
+                    <Text class="label" size="large">
+                      Minecraftサーバー管理
+                    </Text>
+                    {/* CUSTOM: Minecraftパネルを閉じてチャットのみの表示に戻すボタン */}
+                    <Tooltip content="閉じる" placement="top">
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => setSidebarState({ state: "default" })}
+                      >
+                        <Symbol size={16}>close</Symbol>
+                      </IconButton>
+                    </Tooltip>
+                  </SidebarHeaderRow>
+                  <MinecraftExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
             </Switch>

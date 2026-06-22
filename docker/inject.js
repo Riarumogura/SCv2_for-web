@@ -24,6 +24,7 @@ const REPLACEMENTS = {
   __VITE_RNNOISE_WORKLET_CDN_URL__: process.env.VITE_RNNOISE_WORKLET_CDN_URL || "",
   __VITE_STORAGE_API_URL__: process.env.VITE_STORAGE_API_URL || "",
   __VITE_CALENDAR_API_URL__: process.env.VITE_CALENDAR_API_URL || "",
+  __VITE_MC_MANAGER_API_URL__: process.env.VITE_MC_MANAGER_API_URL || "",
 };
 
 console.log("Preparing injected build...");

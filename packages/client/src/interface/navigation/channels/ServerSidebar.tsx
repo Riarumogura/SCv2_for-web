@@ -43,10 +43,13 @@ import MdChevronRight from "@material-design-icons/svg/filled/chevron_right.svg?
 import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?component-solid";
 import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
 import MdCalendar from "@material-symbols/svg-400/outlined/calendar_month-fill.svg?component-solid";
+import MdMinecraft from "@material-symbols/svg-400/outlined/sports_esports-fill.svg?component-solid";
 
 import { useStorageApi, StorageConfig } from "../../../api/storage";
 import { requestOpenStorage } from "../../../api/storageExplorerSignal";
 import { requestOpenCalendar } from "../../../api/calendarExplorerSignal";
+import { useMinecraftApi, McServer, McServerStatus } from "../../../api/minecraft";
+import { requestOpenMinecraft } from "../../../api/minecraftExplorerSignal";
 
 import { SidebarBase } from "./common";
 
@@ -293,6 +296,95 @@ export const ServerSidebar = (props: Props) => {
     });
   };
 
+  // CUSTOM: Minecraftサーバー管理メニューを追加。一覧表示は全メンバー可だが、
+  // 作成・起動・停止・削除はManageServer権限を持つ場合のみ(canManageServer())。
+  const minecraftApi = useMinecraftApi();
+  const [mcServers, setMcServers] = createSignal<McServer[]>([]);
+  const [mcLoading, setMcLoading] = createSignal(false);
+  const [mcBusyIds, setMcBusyIds] = createSignal<Set<string>>(new Set());
+
+  const refreshMcServers = async () => {
+    try {
+      setMcLoading(true);
+      const list = await minecraftApi.listServers(props.server.id);
+      setMcServers(list);
+    } catch (error) {
+      console.error("Minecraftサーバー一覧の取得に失敗しました:", error);
+    } finally {
+      setMcLoading(false);
+    }
+  };
+
+  onMount(() => {
+    refreshMcServers();
+  });
+
+  const setMcBusy = (mcId: string, busy: boolean) => {
+    setMcBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(mcId);
+      else next.delete(mcId);
+      return next;
+    });
+  };
+
+  const openCreateMinecraftServerModal = () => {
+    openModal({
+      type: "create_minecraft_server",
+      serverId: props.server.id,
+      onCreated: refreshMcServers,
+    });
+  };
+
+  const openDeleteMinecraftServerModal = (server: McServer) => {
+    openModal({
+      type: "delete_minecraft_server",
+      serverId: props.server.id,
+      mcId: server.mcId,
+      serverName: server.name,
+      onDeleted: refreshMcServers,
+    });
+  };
+
+  const openMinecraft = () => {
+    requestOpenMinecraft({ serverId: props.server.id });
+  };
+
+  // CUSTOM: 親のStorageItemActions divがonClickでstopPropagationしているため、
+  // ここで個別にイベント伝播を止める必要はない(クリックでopenMinecraftが誘発されない)
+  const startMcServer = async (server: McServer) => {
+    setMcBusy(server.mcId, true);
+    try {
+      const updated = await minecraftApi.startServer(props.server.id, server.mcId);
+      setMcServers((prev) => prev.map((s) => (s.mcId === updated.mcId ? updated : s)));
+    } catch (error) {
+      console.error("Minecraftサーバーの起動に失敗しました:", error);
+    } finally {
+      setMcBusy(server.mcId, false);
+    }
+  };
+
+  const stopMcServer = async (server: McServer) => {
+    setMcBusy(server.mcId, true);
+    try {
+      const updated = await minecraftApi.stopServer(props.server.id, server.mcId);
+      setMcServers((prev) => prev.map((s) => (s.mcId === updated.mcId ? updated : s)));
+    } catch (error) {
+      console.error("Minecraftサーバーの停止に失敗しました:", error);
+    } finally {
+      setMcBusy(server.mcId, false);
+    }
+  };
+
+  const MC_STATUS_LABELS: Record<McServerStatus, string> = {
+    CREATED: "未起動",
+    STARTING: "起動中",
+    RUNNING: "オンライン",
+    STOPPING: "停止中",
+    STOPPED: "停止済み",
+    ERROR: "エラー",
+  };
+
   return (
     <SidebarBase use:floating={props.menuGenerator(props.server)}>
       <Switch
@@ -500,6 +592,116 @@ export const ServerSidebar = (props: Props) => {
                   </StorageUsage>
                   <span style={{ "font-size": "11px", opacity: 0.7 }}>
                     {formatBytes(storage.usedSize)} / {formatBytes(storage.sizeLimit)}
+                  </span>
+                </StorageItem>
+              ))}
+            </StorageList>
+          </Show>
+        </StorageSection>
+
+        {/* CUSTOM: Minecraftサーバー管理メニューセクション。一覧表示は全メンバー可、
+            作成・起動・停止・削除のボタンはcanManageServer()を持つ場合のみ表示する */}
+        <StorageSection>
+          <StorageHeader>
+            <Row align gap="sm">
+              <MdMinecraft {...iconSize(16)} />
+              <span style={{ "font-weight": "bold" }}>Minecraft</span>
+            </Row>
+            <Show when={canManageServer()}>
+              <Tooltip content="新しいMinecraftサーバーを作成" placement="top">
+                <IconButton
+                  size="xs"
+                  variant="standard"
+                  onPress={openCreateMinecraftServerModal}
+                >
+                  <Symbol size={16}>add</Symbol>
+                </IconButton>
+              </Tooltip>
+            </Show>
+          </StorageHeader>
+
+          <Show
+            when={mcServers().length > 0}
+            fallback={
+              <StorageEmptyState>
+                <div style={{ "text-align": "center", padding: "var(--gap-md)" }}>
+                  <MdMinecraft {...iconSize(32)} style={{ opacity: 0.5 }} />
+                  <p style={{ "margin-top": "var(--gap-sm)", "font-size": "12px" }}>
+                    {mcLoading() ? "読み込み中..." : "Minecraftサーバーがありません"}
+                  </p>
+                  <Show when={canManageServer()}>
+                    <button
+                      onClick={openCreateMinecraftServerModal}
+                      style={{
+                        "margin-top": "var(--gap-sm)",
+                        padding: "var(--gap-xs) var(--gap-sm)",
+                        background: "var(--md-sys-color-primary)",
+                        color: "white",
+                        border: "none",
+                        "border-radius": "var(--borderRadius-sm)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      作成する
+                    </button>
+                  </Show>
+                </div>
+              </StorageEmptyState>
+            }
+          >
+            <StorageList>
+              {mcServers().map((server) => (
+                <StorageItem onClick={openMinecraft}>
+                  <Row align gap="sm" style={{ "justify-content": "space-between" }}>
+                    <Row align gap="sm" style={{ overflow: "hidden" }}>
+                      <Symbol size={16}>
+                        {server.status === "RUNNING" ? "play_circle" : "stop_circle"}
+                      </Symbol>
+                      <OverflowingText style={{ "font-size": "13px" }}>
+                        {server.name}
+                      </OverflowingText>
+                    </Row>
+                    <StorageItemActions onClick={(e: MouseEvent) => e.stopPropagation()}>
+                      <Show when={canManageServer()}>
+                        <Show
+                          when={server.status === "RUNNING" || server.status === "STARTING"}
+                          fallback={
+                            <Tooltip content="起動" placement="top">
+                              <IconButton
+                                size="xs"
+                                variant="standard"
+                                isDisabled={mcBusyIds().has(server.mcId)}
+                                onPress={() => startMcServer(server)}
+                              >
+                                <Symbol size={14}>play_arrow</Symbol>
+                              </IconButton>
+                            </Tooltip>
+                          }
+                        >
+                          <Tooltip content="停止" placement="top">
+                            <IconButton
+                              size="xs"
+                              variant="standard"
+                              isDisabled={mcBusyIds().has(server.mcId)}
+                              onPress={() => stopMcServer(server)}
+                            >
+                              <Symbol size={14}>stop</Symbol>
+                            </IconButton>
+                          </Tooltip>
+                        </Show>
+                        <IconButton
+                          size="xs"
+                          variant="standard"
+                          onPress={() => openDeleteMinecraftServerModal(server)}
+                        >
+                          <Symbol size={14}>delete</Symbol>
+                        </IconButton>
+                      </Show>
+                    </StorageItemActions>
+                  </Row>
+                  <span style={{ "font-size": "11px", opacity: 0.7 }}>
+                    {MC_STATUS_LABELS[server.status]} ・ {server.type} {server.version} ・
+                    ポート{server.port}
                   </span>
                 </StorageItem>
               ))}

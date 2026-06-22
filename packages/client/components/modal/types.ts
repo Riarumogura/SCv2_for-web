@@ -382,6 +382,18 @@ export type Modals =
       name: string;
     }
   | {
+      type: "create_minecraft_server";
+      serverId: string;
+      onCreated?: () => void;
+    }
+  | {
+      type: "delete_minecraft_server";
+      serverId: string;
+      mcId: string;
+      serverName: string;
+      onDeleted?: () => void;
+    }
+  | {
       type: "create_event";
       serverId: string;
       initialDate?: string;
