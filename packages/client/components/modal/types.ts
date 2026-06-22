@@ -394,6 +394,14 @@ export type Modals =
       onDeleted?: () => void;
     }
   | {
+      type: "select_minecraft_jar";
+      serverId: string;
+      mcId: string;
+      serverName: string;
+      candidates: string[];
+      onSelected?: () => void;
+    }
+  | {
       type: "create_event";
       serverId: string;
       initialDate?: string;

@@ -48,7 +48,7 @@ import MdMinecraft from "@material-symbols/svg-400/outlined/sports_esports-fill.
 import { useStorageApi, StorageConfig } from "../../../api/storage";
 import { requestOpenStorage } from "../../../api/storageExplorerSignal";
 import { requestOpenCalendar } from "../../../api/calendarExplorerSignal";
-import { useMinecraftApi, McServer, McServerStatus } from "../../../api/minecraft";
+import { useMinecraftApi, McServer, MC_STATUS_LABELS } from "../../../api/minecraft";
 import { requestOpenMinecraft } from "../../../api/minecraftExplorerSignal";
 
 import { SidebarBase } from "./common";
@@ -350,6 +350,19 @@ export const ServerSidebar = (props: Props) => {
     requestOpenMinecraft({ serverId: props.server.id });
   };
 
+  // CUSTOM: 起動jar候補が複数あり選択待ちの場合は、行クリックで選択モーダルを開く
+  // (この状態のサーバーは選択完了までstartできない)
+  const openSelectMinecraftJarModal = (server: McServer) => {
+    openModal({
+      type: "select_minecraft_jar",
+      serverId: props.server.id,
+      mcId: server.mcId,
+      serverName: server.name,
+      candidates: server.pendingJarCandidates ?? [],
+      onSelected: refreshMcServers,
+    });
+  };
+
   // CUSTOM: 親のStorageItemActions divがonClickでstopPropagationしているため、
   // ここで個別にイベント伝播を止める必要はない(クリックでopenMinecraftが誘発されない)
   const startMcServer = async (server: McServer) => {
@@ -376,14 +389,6 @@ export const ServerSidebar = (props: Props) => {
     }
   };
 
-  const MC_STATUS_LABELS: Record<McServerStatus, string> = {
-    CREATED: "未起動",
-    STARTING: "起動中",
-    RUNNING: "オンライン",
-    STOPPING: "停止中",
-    STOPPED: "停止済み",
-    ERROR: "エラー",
-  };
 
   return (
     <SidebarBase use:floating={props.menuGenerator(props.server)}>
@@ -651,11 +656,21 @@ export const ServerSidebar = (props: Props) => {
           >
             <StorageList>
               {mcServers().map((server) => (
-                <StorageItem onClick={openMinecraft}>
+                <StorageItem
+                  onClick={() =>
+                    server.status === "PENDING_JAR_SELECTION"
+                      ? openSelectMinecraftJarModal(server)
+                      : openMinecraft()
+                  }
+                >
                   <Row align gap="sm" style={{ "justify-content": "space-between" }}>
                     <Row align gap="sm" style={{ overflow: "hidden" }}>
                       <Symbol size={16}>
-                        {server.status === "RUNNING" ? "play_circle" : "stop_circle"}
+                        {server.status === "RUNNING"
+                          ? "play_circle"
+                          : server.status === "PENDING_JAR_SELECTION"
+                            ? "help"
+                            : "stop_circle"}
                       </Symbol>
                       <OverflowingText style={{ "font-size": "13px" }}>
                         {server.name}
@@ -664,28 +679,43 @@ export const ServerSidebar = (props: Props) => {
                     <StorageItemActions onClick={(e: MouseEvent) => e.stopPropagation()}>
                       <Show when={canManageServer()}>
                         <Show
-                          when={server.status === "RUNNING" || server.status === "STARTING"}
+                          when={server.status === "PENDING_JAR_SELECTION"}
                           fallback={
-                            <Tooltip content="起動" placement="top">
-                              <IconButton
-                                size="xs"
-                                variant="standard"
-                                isDisabled={mcBusyIds().has(server.mcId)}
-                                onPress={() => startMcServer(server)}
-                              >
-                                <Symbol size={14}>play_arrow</Symbol>
-                              </IconButton>
-                            </Tooltip>
+                            <Show
+                              when={server.status === "RUNNING" || server.status === "STARTING"}
+                              fallback={
+                                <Tooltip content="起動" placement="top">
+                                  <IconButton
+                                    size="xs"
+                                    variant="standard"
+                                    isDisabled={mcBusyIds().has(server.mcId)}
+                                    onPress={() => startMcServer(server)}
+                                  >
+                                    <Symbol size={14}>play_arrow</Symbol>
+                                  </IconButton>
+                                </Tooltip>
+                              }
+                            >
+                              <Tooltip content="停止" placement="top">
+                                <IconButton
+                                  size="xs"
+                                  variant="standard"
+                                  isDisabled={mcBusyIds().has(server.mcId)}
+                                  onPress={() => stopMcServer(server)}
+                                >
+                                  <Symbol size={14}>stop</Symbol>
+                                </IconButton>
+                              </Tooltip>
+                            </Show>
                           }
                         >
-                          <Tooltip content="停止" placement="top">
+                          <Tooltip content="起動するjarファイルを選択" placement="top">
                             <IconButton
                               size="xs"
                               variant="standard"
-                              isDisabled={mcBusyIds().has(server.mcId)}
-                              onPress={() => stopMcServer(server)}
+                              onPress={() => openSelectMinecraftJarModal(server)}
                             >
-                              <Symbol size={14}>stop</Symbol>
+                              <Symbol size={14}>list</Symbol>
                             </IconButton>
                           </Tooltip>
                         </Show>

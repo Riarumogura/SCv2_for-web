@@ -1,8 +1,9 @@
-// CUSTOM: Minecraftサーバー作成モーダル
+// CUSTOM: Minecraftサーバー作成モーダル(新規作成 / 既存ファイルのzipアップロード)
 // CUSTOM: lingui(<Trans>/t)はi18nカタログ未コンパイルのためハッシュ文字列で表示されてしまう
 // (storage系モーダルの既知バグと同種)。この機能では日本語をハードコードして回避する。
 import { createFormControl, createFormGroup } from "solid-forms";
-import { For } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
+import { styled } from "styled-system/jsx";
 
 import { Column, Dialog, DialogProps, Form2, MenuItem } from "@revolt/ui";
 
@@ -18,14 +19,21 @@ const TYPE_LABELS: Record<McServerType, string> = {
   PAPER: "Paper",
 };
 
+type CreateMode = "new" | "upload";
+
 /**
- * Modal to create a new Minecraft server
+ * Modal to create a new Minecraft server, either freshly downloaded or from an uploaded zip
  */
 export function CreateMinecraftServerModal(
   props: DialogProps & Modals & { type: "create_minecraft_server" },
 ) {
-  const { showError } = useModals();
+  const { showError, openModal } = useModals();
   const minecraftApi = useMinecraftApi();
+
+  const [mode, setMode] = createSignal<CreateMode>("new");
+  const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
+  const [uploading, setUploading] = createSignal(false);
+  const [uploadProgress, setUploadProgress] = createSignal(0);
 
   const group = createFormGroup({
     name: createFormControl("", { required: true }),
@@ -35,24 +43,74 @@ export function CreateMinecraftServerModal(
     port: createFormControl("25565", { required: true }),
   });
 
-  async function onSubmit() {
+  async function onSubmitNew() {
+    await minecraftApi.createServer(props.serverId, {
+      name: group.controls.name.value,
+      version: group.controls.version.value,
+      type: group.controls.type.value,
+      memory: group.controls.memory.value,
+      port: parseInt(group.controls.port.value),
+    });
+    props.onCreated?.();
+    props.onClose();
+  }
+
+  async function onSubmitUpload() {
+    const file = selectedFile();
+    if (!file) return;
+
+    setUploading(true);
+    setUploadProgress(0);
     try {
-      await minecraftApi.createServer(props.serverId, {
-        name: group.controls.name.value,
-        version: group.controls.version.value,
-        type: group.controls.type.value,
-        memory: group.controls.memory.value,
-        port: parseInt(group.controls.port.value),
-      });
+      const created = await minecraftApi.uploadServer(
+        props.serverId,
+        {
+          name: group.controls.name.value,
+          type: group.controls.type.value,
+          memory: group.controls.memory.value,
+          port: parseInt(group.controls.port.value),
+          file,
+        },
+        (percent) => setUploadProgress(percent),
+      );
 
       props.onCreated?.();
       props.onClose();
+
+      // CUSTOM: 起動jarの候補が複数あった場合、続けて選択モーダルを開く
+      if (created.status === "PENDING_JAR_SELECTION" && created.pendingJarCandidates) {
+        openModal({
+          type: "select_minecraft_jar",
+          serverId: props.serverId,
+          mcId: created.mcId,
+          serverName: created.name,
+          candidates: created.pendingJarCandidates,
+          onSelected: props.onCreated,
+        });
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function onSubmit() {
+    try {
+      if (mode() === "upload") {
+        await onSubmitUpload();
+      } else {
+        await onSubmitNew();
+      }
     } catch (error) {
       showError(error);
     }
   }
 
   const submit = Form2.useSubmitHandler(group, onSubmit);
+
+  const canSubmit = () =>
+    mode() === "upload"
+      ? Boolean(selectedFile()) && !uploading() && Boolean(group.controls.name.value)
+      : Form2.canSubmit(group);
 
   return (
     <Dialog
@@ -62,18 +120,27 @@ export function CreateMinecraftServerModal(
       actions={[
         { text: "キャンセル" },
         {
-          text: "作成",
+          text: mode() === "upload" ? "アップロード&作成" : "作成",
           onClick: () => {
             onSubmit();
             return false;
           },
-          isDisabled: !Form2.canSubmit(group),
+          isDisabled: !canSubmit(),
         },
       ]}
-      isDisabled={group.isPending}
+      isDisabled={group.isPending || uploading()}
     >
       <form onSubmit={submit}>
         <Column>
+          <ModeToggle>
+            <ModeButton type="button" data-active={mode() === "new"} onClick={() => setMode("new")}>
+              新規作成
+            </ModeButton>
+            <ModeButton type="button" data-active={mode() === "upload"} onClick={() => setMode("upload")}>
+              既存ファイルをアップロード
+            </ModeButton>
+          </ModeToggle>
+
           <Form2.TextField
             minlength={1}
             maxlength={50}
@@ -84,12 +151,14 @@ export function CreateMinecraftServerModal(
             placeholder="例: サバイバルサーバー"
           />
 
-          <Form2.TextField
-            name="version"
-            control={group.controls.version}
-            label="Minecraftバージョン"
-            placeholder="例: 1.20.1"
-          />
+          <Show when={mode() === "new"}>
+            <Form2.TextField
+              name="version"
+              control={group.controls.version}
+              label="Minecraftバージョン"
+              placeholder="例: 1.20.1"
+            />
+          </Show>
 
           <Form2.Select label="サーバータイプ" control={group.controls.type}>
             <For each={MC_SERVER_TYPES}>
@@ -112,19 +181,103 @@ export function CreateMinecraftServerModal(
             label="ポート番号"
           />
 
-          <div
-            style={{
-              "margin-top": "var(--gap-md)",
-              "font-size": "12px",
-              color: "var(--md-sys-color-on-surface-variant)",
-            }}
+          <Show
+            when={mode() === "upload"}
+            fallback={
+              <div
+                style={{
+                  "margin-top": "var(--gap-md)",
+                  "font-size": "12px",
+                  color: "var(--md-sys-color-on-surface-variant)",
+                }}
+              >
+                <div>• 作成後は停止状態です。一覧から起動してください</div>
+                <div>• 複数のサーバーを作成する場合はポート番号を重複させないでください</div>
+                <div>• 初回起動時にサーバーファイルのダウンロードが行われるため少し時間がかかります</div>
+              </div>
+            }
           >
-            <div>• 作成後は停止状態です。一覧から起動してください</div>
-            <div>• 複数のサーバーを作成する場合はポート番号を重複させないでください</div>
-            <div>• 初回起動時にサーバーファイルのダウンロードが行われるため少し時間がかかります</div>
-          </div>
+            <FileFieldLabel>サーバーファイル(zip)</FileFieldLabel>
+            <input
+              type="file"
+              accept=".zip"
+              disabled={uploading()}
+              onChange={(e) => setSelectedFile(e.currentTarget.files?.[0] ?? null)}
+            />
+
+            <Show when={uploading()}>
+              <ProgressTrack>
+                <ProgressFill style={{ width: `${uploadProgress()}%` }} />
+              </ProgressTrack>
+              <span style={{ "font-size": "12px" }}>アップロード中... {uploadProgress()}%</span>
+            </Show>
+
+            <div
+              style={{
+                "margin-top": "var(--gap-md)",
+                "font-size": "12px",
+                color: "var(--md-sys-color-on-surface-variant)",
+              }}
+            >
+              <div>• 既存のサーバーファイル一式(jar・world・mods等)をzip形式でまとめてアップロードしてください</div>
+              <div>• 最大10GBまで対応しています</div>
+              <div>• 起動jarが複数見つかった場合は、アップロード後に選択画面が表示されます</div>
+            </div>
+          </Show>
         </Column>
       </form>
     </Dialog>
   );
 }
+
+const ModeToggle = styled("div", {
+  base: {
+    display: "flex",
+    gap: "var(--gap-xs)",
+    marginBottom: "var(--gap-sm)",
+  },
+});
+
+const ModeButton = styled("button", {
+  base: {
+    flex: 1,
+    padding: "var(--gap-xs) var(--gap-sm)",
+    borderRadius: "var(--borderRadius-sm)",
+    border: "1px solid var(--md-sys-color-outline-variant)",
+    background: "var(--md-sys-color-surface-container-low)",
+    color: "inherit",
+    cursor: "pointer",
+    fontSize: "13px",
+
+    '&[data-active="true"]': {
+      background: "var(--md-sys-color-primary)",
+      color: "var(--md-sys-color-on-primary)",
+      borderColor: "var(--md-sys-color-primary)",
+    },
+  },
+});
+
+const FileFieldLabel = styled("span", {
+  base: {
+    fontSize: "12px",
+    color: "var(--md-sys-color-on-surface-variant)",
+  },
+});
+
+const ProgressTrack = styled("div", {
+  base: {
+    height: "4px",
+    borderRadius: "2px",
+    background: "var(--md-sys-color-surface-container-highest)",
+    overflow: "hidden",
+    marginTop: "var(--gap-xs)",
+  },
+});
+
+const ProgressFill = styled("div", {
+  base: {
+    height: "100%",
+    background: "var(--md-sys-color-primary)",
+    transition: "width 0.2s ease",
+  },
+});

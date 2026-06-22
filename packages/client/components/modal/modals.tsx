@@ -67,6 +67,7 @@ import { SelectFolderModal } from "./modals/SelectFolder";
 import { StoragePreviewModal } from "./modals/StoragePreview";
 import { CreateMinecraftServerModal } from "./modals/CreateMinecraftServer";
 import { DeleteMinecraftServerModal } from "./modals/DeleteMinecraftServer";
+import { SelectMinecraftJarModal } from "./modals/SelectMinecraftJar";
 import { CreateEventModal } from "./modals/CreateEvent";
 import { EditEventModal } from "./modals/EditEvent";
 import { DeleteEventModal } from "./modals/DeleteEvent";
@@ -226,6 +227,8 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <CreateMinecraftServerModal {...modalProps} />;
     case "delete_minecraft_server":
       return <DeleteMinecraftServerModal {...modalProps} />;
+    case "select_minecraft_jar":
+      return <SelectMinecraftJarModal {...modalProps} />;
     default:
       console.error(
         "Failed to create modal for",

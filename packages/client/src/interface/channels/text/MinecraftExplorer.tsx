@@ -12,27 +12,19 @@ import {
 import { styled } from "styled-system/jsx";
 
 import { useClient } from "@revolt/client";
+import { useModals } from "@revolt/modal";
 import { IconButton } from "@revolt/ui";
 import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import {
   useMinecraftApi,
   McServer,
-  McServerStatus,
+  MC_STATUS_LABELS,
 } from "../../../api/minecraft";
 
 interface MinecraftExplorerProps {
   serverId: string;
 }
-
-const MC_STATUS_LABELS: Record<McServerStatus, string> = {
-  CREATED: "未起動",
-  STARTING: "起動中",
-  RUNNING: "オンライン",
-  STOPPING: "停止中",
-  STOPPED: "停止済み",
-  ERROR: "エラー",
-};
 
 const MAX_LOG_LINES = 500;
 
@@ -42,6 +34,7 @@ const MAX_LOG_LINES = 500;
 export function MinecraftExplorer(props: MinecraftExplorerProps) {
   const minecraftApi = useMinecraftApi();
   const client = useClient();
+  const { openModal } = useModals();
 
   // CUSTOM: 一覧表示は全メンバー可だが、作成・起動・停止・コマンド送信・削除は
   // ManageServer権限を持つ場合のみ(ServerSidebar.tsxのcanManageServerと同じ判定)
@@ -124,6 +117,18 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
     }
   }
 
+  // CUSTOM: 起動jar候補が複数あり選択待ちの場合に開く(選択完了までstart不可)
+  function openSelectMinecraftJarModal(server: McServer) {
+    openModal({
+      type: "select_minecraft_jar",
+      serverId: props.serverId,
+      mcId: server.mcId,
+      serverName: server.name,
+      candidates: server.pendingJarCandidates ?? [],
+      onSelected: () => refreshOne(server.mcId),
+    });
+  }
+
   async function handleStart(server: McServer) {
     setBusy(true);
     try {
@@ -194,11 +199,19 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
               {(server) => (
                 <ServerRow
                   data-selected={selectedMcId() === server.mcId}
-                  onClick={() => openConsole(server.mcId)}
+                  onClick={() =>
+                    server.status === "PENDING_JAR_SELECTION"
+                      ? openSelectMinecraftJarModal(server)
+                      : openConsole(server.mcId)
+                  }
                 >
                   <RowMain>
                     <Symbol size={16}>
-                      {server.status === "RUNNING" ? "play_circle" : "stop_circle"}
+                      {server.status === "RUNNING"
+                        ? "play_circle"
+                        : server.status === "PENDING_JAR_SELECTION"
+                          ? "help"
+                          : "stop_circle"}
                     </Symbol>
                     <RowName>{server.name}</RowName>
                   </RowMain>
@@ -209,25 +222,38 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
                   <Show when={canManageServer()}>
                     <RowActions onClick={(e: MouseEvent) => e.stopPropagation()}>
                       <Show
-                        when={server.status === "RUNNING" || server.status === "STARTING"}
+                        when={server.status === "PENDING_JAR_SELECTION"}
                         fallback={
-                          <IconButton
-                            size="xs"
-                            variant="standard"
-                            isDisabled={busy()}
-                            onPress={() => handleStart(server)}
+                          <Show
+                            when={server.status === "RUNNING" || server.status === "STARTING"}
+                            fallback={
+                              <IconButton
+                                size="xs"
+                                variant="standard"
+                                isDisabled={busy()}
+                                onPress={() => handleStart(server)}
+                              >
+                                <Symbol size={14}>play_arrow</Symbol>
+                              </IconButton>
+                            }
                           >
-                            <Symbol size={14}>play_arrow</Symbol>
-                          </IconButton>
+                            <IconButton
+                              size="xs"
+                              variant="standard"
+                              isDisabled={busy()}
+                              onPress={() => handleStop(server)}
+                            >
+                              <Symbol size={14}>stop</Symbol>
+                            </IconButton>
+                          </Show>
                         }
                       >
                         <IconButton
                           size="xs"
                           variant="standard"
-                          isDisabled={busy()}
-                          onPress={() => handleStop(server)}
+                          onPress={() => openSelectMinecraftJarModal(server)}
                         >
-                          <Symbol size={14}>stop</Symbol>
+                          <Symbol size={14}>list</Symbol>
                         </IconButton>
                       </Show>
                       <IconButton

@@ -12,8 +12,24 @@ export const MC_SERVER_STATUSES = [
   "STOPPING",
   "STOPPED",
   "ERROR",
+  // CUSTOM: zipアップロードで起動jar候補が複数見つかり、ユーザーの選択待ちの状態
+  "PENDING_JAR_SELECTION",
 ] as const;
 export type McServerStatus = (typeof MC_SERVER_STATUSES)[number];
+
+// CUSTOM: サイドバー・パネルで状態ラベルを共有するための一元化辞書
+export const MC_STATUS_LABELS: Record<McServerStatus, string> = {
+  CREATED: "未起動",
+  STARTING: "起動中",
+  RUNNING: "オンライン",
+  STOPPING: "停止中",
+  STOPPED: "停止済み",
+  ERROR: "エラー",
+  PENDING_JAR_SELECTION: "jar選択待ち",
+};
+
+export const MC_SERVER_SOURCES = ["NEW", "UPLOAD"] as const;
+export type McServerSource = (typeof MC_SERVER_SOURCES)[number];
 
 export interface McServer {
   id: string;
@@ -28,6 +44,9 @@ export interface McServer {
   containerId: string | null;
   containerName: string;
   status: McServerStatus;
+  source: McServerSource;
+  customJarPath: string | null;
+  pendingJarCandidates: string[] | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +58,14 @@ export interface CreateMcServerRequest {
   type: McServerType;
   memory: string;
   port: number;
+}
+
+export interface UploadMcServerRequest {
+  name: string;
+  type: McServerType;
+  memory: string;
+  port: number;
+  file: File;
 }
 
 /**
@@ -122,6 +149,91 @@ export class MinecraftApiClient {
     if (!response.ok) {
       const body = await response.json().catch(() => null);
       throw new Error(body?.error ? JSON.stringify(body.error) : `Minecraftサーバーの作成に失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * 既存サーバーファイル(zip)をアップロードして作成する。
+   * CUSTOM: fetch()はアップロード進捗を取得できないため、XMLHttpRequestを使う。
+   * バックエンドはフィールドを先に検証してから展開を始めるため、FormDataには
+   * name/type/memory/portを先にappendし、fileは必ず最後にappendすること。
+   */
+  uploadServer(
+    serverId: string,
+    data: UploadMcServerRequest,
+    onProgress?: (percent: number) => void,
+  ): Promise<McServer> {
+    const currentClient = this.getClient();
+    if (!currentClient) {
+      return Promise.reject(new Error("クライアントが取得できません"));
+    }
+    const authHeader = currentClient.authenticationHeader;
+    if (!authHeader) {
+      return Promise.reject(new Error("認証ヘッダーが取得できません"));
+    }
+
+    const formData = new FormData();
+    formData.append("name", data.name);
+    formData.append("type", data.type);
+    formData.append("memory", data.memory);
+    formData.append("port", String(data.port));
+    formData.append("file", data.file);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${this.baseUrl}/servers/${serverId}/minecraft/upload`);
+      xhr.setRequestHeader(authHeader[0], authHeader[1]);
+      xhr.setRequestHeader("X-Server-Id", serverId);
+
+      xhr.upload.onprogress = (event) => {
+        if (onProgress && event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error("レスポンスの解析に失敗しました"));
+          }
+          return;
+        }
+
+        let message = `アップロードに失敗しました: ${xhr.status}`;
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (body?.error) {
+            message = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
+          }
+        } catch {
+          // レスポンスがJSONでない場合はデフォルトメッセージのまま
+        }
+        reject(new Error(message));
+      };
+
+      xhr.onerror = () => reject(new Error("アップロード中にネットワークエラーが発生しました"));
+      xhr.send(formData);
+    });
+  }
+
+  /**
+   * 起動jar候補が複数あった場合に、ユーザーが選んだ候補を確定する
+   */
+  async selectJar(serverId: string, mcId: string, jarPath: string): Promise<McServer> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/select-jar`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ jarPath }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `jarの選択に失敗しました: ${response.status}`);
     }
 
     return response.json();
