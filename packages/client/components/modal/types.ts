@@ -28,6 +28,7 @@ import { ScreenShareQualityName } from "@revolt/state/stores/Voice";
 import type { ChangelogResponse } from "./modals/Changelog";
 import type { StorageConfig } from "../../src/api/storage";
 import type { CalendarEvent } from "../../src/api/calendar";
+import type { Stamp } from "../../src/api/stamp";
 
 export type Modals =
   | {
@@ -382,6 +383,17 @@ export type Modals =
       name: string;
     }
   | {
+      type: "create_stamp";
+      serverId: string;
+      onCreated?: () => void;
+    }
+  | {
+      type: "stamp_preview";
+      serverId: string;
+      stamp: Stamp;
+      onDeleted?: () => void;
+    }
+  | {
       type: "create_minecraft_server";
       serverId: string;
       onCreated?: () => void;
@@ -400,6 +412,22 @@ export type Modals =
       serverName: string;
       candidates: string[];
       onSelected?: () => void;
+    }
+  | {
+      type: "minecraft_text_editor";
+      serverId: string;
+      mcId: string;
+      path: string;
+      name: string;
+      readOnly: boolean;
+      onSaved?: () => void;
+    }
+  | {
+      type: "upload_zip_to_folder";
+      serverId: string;
+      mcId: string;
+      initialPath: string;
+      onUploaded?: () => void;
     }
   | {
       type: "create_event";

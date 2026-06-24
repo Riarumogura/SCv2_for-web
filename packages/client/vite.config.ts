@@ -32,6 +32,9 @@ export default defineConfig({
       strategies: "injectManifest",
       injectManifest: {
         maximumFileSizeToCacheInBytes: 4000000,
+        // ffmpeg-core.wasm(32.2MB)はプリキャッシュ上限を大幅に超えるため対象から除外する
+        // (動画処理用に必要時だけfetchされる想定のアセットで、事前キャッシュは不要)
+        globIgnores: ["**/ffmpeg/**"],
       },
       manifest: {
         name: "Stoat",

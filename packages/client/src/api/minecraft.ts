@@ -68,6 +68,13 @@ export interface UploadMcServerRequest {
   file: File;
 }
 
+export interface McFileEntry {
+  name: string;
+  type: "file" | "folder";
+  size: number;
+  lastModified: string;
+}
+
 /**
  * Minecraftサーバー管理APIクライアント
  */
@@ -317,6 +324,201 @@ export class MinecraftApiClient {
 
     const result = await response.json();
     return result.response as string;
+  }
+
+  // ---- ファイルマネージャー ----
+  // CUSTOM: 変更系(write/upload/delete/createFolder/rename/uploadZipToFolder)はバックエンドが
+  // サーバー停止中のみ許可する(409を返す)。閲覧系(list/readText/download)は常時可。
+
+  async listFiles(serverId: string, mcId: string, path = ""): Promise<McFileEntry[]> {
+    const headers = await this.getAuthHeaders(serverId);
+    const url = new URL(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files`);
+    if (path) url.searchParams.set("path", path);
+    const response = await fetch(url.toString(), { method: "GET", headers });
+
+    if (!response.ok) {
+      throw new Error(`ファイル一覧の取得に失敗しました: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async readTextFile(serverId: string, mcId: string, path: string): Promise<string> {
+    const headers = await this.getAuthHeaders(serverId);
+    const url = new URL(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files/text`);
+    url.searchParams.set("path", path);
+    const response = await fetch(url.toString(), { method: "GET", headers });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `ファイルの読み込みに失敗しました: ${response.status}`);
+    }
+    const result = await response.json();
+    return result.content as string;
+  }
+
+  async writeTextFile(serverId: string, mcId: string, path: string, content: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files/text`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ path, content }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `ファイルの保存に失敗しました: ${response.status}`);
+    }
+  }
+
+  async deleteFileEntry(serverId: string, mcId: string, path: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files`, {
+      method: "DELETE",
+      headers,
+      body: JSON.stringify({ path }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `削除に失敗しました: ${response.status}`);
+    }
+  }
+
+  async createMcFolder(serverId: string, mcId: string, path: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/folders`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ path }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `フォルダの作成に失敗しました: ${response.status}`);
+    }
+  }
+
+  async renameFileEntry(serverId: string, mcId: string, path: string, newPath: string): Promise<void> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ path, newPath }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `名前の変更に失敗しました: ${response.status}`);
+    }
+  }
+
+  /**
+   * ファイルをBlobとして取得する(ダウンロード用)
+   */
+  async fetchFileBlob(serverId: string, mcId: string, path: string): Promise<Blob> {
+    const headers = await this.getAuthHeaders(serverId);
+    const url = new URL(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files/download`);
+    url.searchParams.set("path", path);
+    const response = await fetch(url.toString(), { method: "GET", headers });
+
+    if (!response.ok) {
+      throw new Error(`ファイルのダウンロードに失敗しました: ${response.status}`);
+    }
+    return response.blob();
+  }
+
+  /**
+   * 単一ファイルをアップロードする(進捗付き)
+   */
+  uploadFile(
+    serverId: string,
+    mcId: string,
+    destPath: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    return this.xhrUpload(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files/upload`, serverId, (formData) => {
+      formData.append("path", destPath);
+      formData.append("file", file);
+    }, onProgress);
+  }
+
+  /**
+   * zipをアップロードして指定フォルダへ置換え展開する(進捗付き)
+   * CUSTOM: 既存のworld・mods等のフォルダをまとめて差し替えるための機能。
+   */
+  uploadZipToFolder(
+    serverId: string,
+    mcId: string,
+    targetPath: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    return this.xhrUpload(
+      `${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/files/upload-zip`,
+      serverId,
+      (formData) => {
+        formData.append("targetPath", targetPath);
+        formData.append("file", file);
+      },
+      onProgress,
+    );
+  }
+
+  /**
+   * CUSTOM: fetch()はアップロード進捗を取得できないため、multipartアップロードは
+   * すべてXMLHttpRequestを使う(uploadServer()と同じ理由)。
+   */
+  private xhrUpload(
+    url: string,
+    serverId: string,
+    buildFormData: (formData: FormData) => void,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    const currentClient = this.getClient();
+    if (!currentClient) {
+      return Promise.reject(new Error("クライアントが取得できません"));
+    }
+    const authHeader = currentClient.authenticationHeader;
+    if (!authHeader) {
+      return Promise.reject(new Error("認証ヘッダーが取得できません"));
+    }
+
+    const formData = new FormData();
+    buildFormData(formData);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.setRequestHeader(authHeader[0], authHeader[1]);
+      xhr.setRequestHeader("X-Server-Id", serverId);
+
+      xhr.upload.onprogress = (event) => {
+        if (onProgress && event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+          return;
+        }
+        let message = `アップロードに失敗しました: ${xhr.status}`;
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (body?.error) {
+            message = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
+          }
+        } catch {
+          // レスポンスがJSONでない場合はデフォルトメッセージのまま
+        }
+        reject(new Error(message));
+      };
+
+      xhr.onerror = () => reject(new Error("アップロード中にネットワークエラーが発生しました"));
+      xhr.send(formData);
+    });
   }
 }
 

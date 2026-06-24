@@ -65,9 +65,13 @@ import { EditStorageModal } from "./modals/EditStorage";
 import { DeleteStorageModal } from "./modals/DeleteStorage";
 import { SelectFolderModal } from "./modals/SelectFolder";
 import { StoragePreviewModal } from "./modals/StoragePreview";
+import { CreateStampModal } from "./modals/CreateStamp";
+import { StampPreviewModal } from "./modals/StampPreview";
 import { CreateMinecraftServerModal } from "./modals/CreateMinecraftServer";
 import { DeleteMinecraftServerModal } from "./modals/DeleteMinecraftServer";
 import { SelectMinecraftJarModal } from "./modals/SelectMinecraftJar";
+import { MinecraftTextEditorModal } from "./modals/MinecraftTextEditor";
+import { UploadZipToFolderModal } from "./modals/UploadZipToFolder";
 import { CreateEventModal } from "./modals/CreateEvent";
 import { EditEventModal } from "./modals/EditEvent";
 import { DeleteEventModal } from "./modals/DeleteEvent";
@@ -223,12 +227,20 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <CalendarTradeColorSettingsModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
+    case "create_stamp":
+      return <CreateStampModal {...modalProps} />;
+    case "stamp_preview":
+      return <StampPreviewModal {...modalProps} />;
     case "create_minecraft_server":
       return <CreateMinecraftServerModal {...modalProps} />;
     case "delete_minecraft_server":
       return <DeleteMinecraftServerModal {...modalProps} />;
     case "select_minecraft_jar":
       return <SelectMinecraftJarModal {...modalProps} />;
+    case "minecraft_text_editor":
+      return <MinecraftTextEditorModal {...modalProps} />;
+    case "upload_zip_to_folder":
+      return <UploadZipToFolderModal {...modalProps} />;
     default:
       console.error(
         "Failed to create modal for",

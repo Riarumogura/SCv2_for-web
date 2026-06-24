@@ -21,12 +21,14 @@ import {
   McServer,
   MC_STATUS_LABELS,
 } from "../../../api/minecraft";
+import { MinecraftFileExplorer } from "./MinecraftFileExplorer";
 
 interface MinecraftExplorerProps {
   serverId: string;
 }
 
 const MAX_LOG_LINES = 500;
+type ViewTab = "console" | "files";
 
 /**
  * Minecraftサーバー管理パネル
@@ -51,6 +53,7 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
   const [servers, setServers] = createSignal<McServer[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [selectedMcId, setSelectedMcId] = createSignal<string | null>(null);
+  const [viewTab, setViewTab] = createSignal<ViewTab>("console");
   const [busy, setBusy] = createSignal(false);
   const [logLines, setLogLines] = createSignal<string[]>([]);
   const [command, setCommand] = createSignal("");
@@ -88,6 +91,7 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
     closeConsole();
     setLogLines([]);
     setSelectedMcId(mcId);
+    setViewTab("console");
 
     const url = minecraftApi.consoleWsUrl(props.serverId, mcId);
     ws = new WebSocket(url);
@@ -274,42 +278,66 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
 
       <Show when={selectedServer()}>
         {(server) => (
-          <ConsoleSection>
+          <DetailSection>
             <SectionHeader>
-              <span>コンソール: {server().name}</span>
+              <TabRow>
+                <TabButton data-active={viewTab() === "console"} onClick={() => setViewTab("console")}>
+                  コンソール: {server().name}
+                </TabButton>
+                <Show when={canManageServer()}>
+                  <TabButton data-active={viewTab() === "files"} onClick={() => setViewTab("files")}>
+                    ファイル管理
+                  </TabButton>
+                </Show>
+              </TabRow>
               <IconButton size="xs" variant="standard" onPress={closeConsole}>
                 <Symbol size={16}>close</Symbol>
               </IconButton>
             </SectionHeader>
-            <LogContainer ref={logContainer}>
-              <For each={logLines()}>{(line) => <LogLine>{line}</LogLine>}</For>
-            </LogContainer>
-            <Show when={canManageServer()}>
-              <CommandInputRow>
-                <CommandInput
-                  type="text"
-                  placeholder="コマンドを入力(例: list)"
-                  value={command()}
-                  disabled={sendingCommand()}
-                  onInput={(e) => setCommand(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSendCommand();
-                    }
-                  }}
-                />
-                <IconButton
-                  size="xs"
-                  variant="standard"
-                  isDisabled={sendingCommand() || !command().trim()}
-                  onPress={handleSendCommand}
-                >
-                  <Symbol size={16}>send</Symbol>
-                </IconButton>
-              </CommandInputRow>
+
+            <Show when={viewTab() === "console"}>
+              <ConsoleBody>
+                <LogContainer ref={logContainer}>
+                  <For each={logLines()}>{(line) => <LogLine>{line}</LogLine>}</For>
+                </LogContainer>
+                <Show when={canManageServer()}>
+                  <CommandInputRow>
+                    <CommandInput
+                      type="text"
+                      placeholder="コマンドを入力(例: list)"
+                      value={command()}
+                      disabled={sendingCommand()}
+                      onInput={(e) => setCommand(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSendCommand();
+                        }
+                      }}
+                    />
+                    <IconButton
+                      size="xs"
+                      variant="standard"
+                      isDisabled={sendingCommand() || !command().trim()}
+                      onPress={handleSendCommand}
+                    >
+                      <Symbol size={16}>send</Symbol>
+                    </IconButton>
+                  </CommandInputRow>
+                </Show>
+              </ConsoleBody>
             </Show>
-          </ConsoleSection>
+
+            <Show when={viewTab() === "files" && canManageServer()}>
+              <FilesBody>
+                <MinecraftFileExplorer
+                  serverId={props.serverId}
+                  mcId={server().mcId}
+                  status={() => selectedServer()?.status ?? server().status}
+                />
+              </FilesBody>
+            </Show>
+          </DetailSection>
         )}
       </Show>
     </Container>
@@ -335,13 +363,60 @@ const Section = styled("div", {
   },
 });
 
-const ConsoleSection = styled("div", {
+const DetailSection = styled("div", {
   base: {
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
     minHeight: 0,
     padding: "var(--gap-md)",
+  },
+});
+
+const ConsoleBody = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1,
+    minHeight: 0,
+  },
+});
+
+const FilesBody = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1,
+    minHeight: 0,
+  },
+});
+
+const TabRow = styled("div", {
+  base: {
+    display: "flex",
+    gap: "var(--gap-sm)",
+    flexGrow: 1,
+    minWidth: 0,
+  },
+});
+
+const TabButton = styled("button", {
+  base: {
+    background: "none",
+    border: "none",
+    color: "var(--md-sys-color-on-surface-variant)",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "bold",
+    padding: "var(--gap-xs) 0",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+
+    '&[data-active="true"]': {
+      color: "var(--md-sys-color-primary)",
+      textDecoration: "underline",
+    },
   },
 });
 
