@@ -500,8 +500,10 @@ const RowActions = styled("div", {
 
 const LogContainer = styled("div", {
   base: {
-    flexGrow: 1,
-    minHeight: 0,
+    // CUSTOM: 親要素の高さが不定(WideSidebarContainerに明示的な高さがない)でも
+    // 際限なく伸びないよう、固定高さ(約20行分)にしてこの中だけでスクロールさせる
+    height: "320px",
+    flexShrink: 0,
     overflowY: "auto",
     background: "var(--md-sys-color-surface-container-lowest)",
     borderRadius: "var(--borderRadius-sm)",
