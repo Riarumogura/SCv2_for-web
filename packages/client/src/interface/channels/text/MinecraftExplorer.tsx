@@ -87,6 +87,13 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
     ws = undefined;
   }
 
+  // CUSTOM: 右上のバツボタン用。WebSocketを切るだけでなく選択状態も解除して
+  // コンソール/ファイル管理パネル自体を非表示にする(closeConsole単体ではパネルは残ったままだった)
+  function closeDetailPanel() {
+    closeConsole();
+    setSelectedMcId(null);
+  }
+
   function openConsole(mcId: string) {
     closeConsole();
     setLogLines([]);
@@ -290,7 +297,7 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
                   </TabButton>
                 </Show>
               </TabRow>
-              <IconButton size="xs" variant="standard" onPress={closeConsole}>
+              <IconButton size="xs" variant="standard" onPress={closeDetailPanel}>
                 <Symbol size={16}>close</Symbol>
               </IconButton>
             </SectionHeader>
