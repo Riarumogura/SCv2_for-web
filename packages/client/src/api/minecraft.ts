@@ -246,6 +246,25 @@ export class MinecraftApiClient {
     return response.json();
   }
 
+  /**
+   * アップロードで作成済みのサーバーの起動jarを後から切り替える(停止中のみ)
+   */
+  async changeJar(serverId: string, mcId: string, jarPath: string): Promise<McServer> {
+    const headers = await this.getAuthHeaders(serverId);
+    const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}/change-jar`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ jarPath }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? `jarの切り替えに失敗しました: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   async getServer(serverId: string, mcId: string): Promise<McServer> {
     const headers = await this.getAuthHeaders(serverId);
     const response = await fetch(`${this.baseUrl}/servers/${serverId}/minecraft/${mcId}`, {

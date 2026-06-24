@@ -414,6 +414,14 @@ export type Modals =
       onSelected?: () => void;
     }
   | {
+      type: "change_minecraft_jar";
+      serverId: string;
+      mcId: string;
+      serverName: string;
+      currentJarPath: string | null;
+      onChanged?: () => void;
+    }
+  | {
       type: "minecraft_text_editor";
       serverId: string;
       mcId: string;

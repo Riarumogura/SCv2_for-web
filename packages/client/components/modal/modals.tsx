@@ -70,6 +70,7 @@ import { StampPreviewModal } from "./modals/StampPreview";
 import { CreateMinecraftServerModal } from "./modals/CreateMinecraftServer";
 import { DeleteMinecraftServerModal } from "./modals/DeleteMinecraftServer";
 import { SelectMinecraftJarModal } from "./modals/SelectMinecraftJar";
+import { ChangeMinecraftJarModal } from "./modals/ChangeMinecraftJar";
 import { MinecraftTextEditorModal } from "./modals/MinecraftTextEditor";
 import { UploadZipToFolderModal } from "./modals/UploadZipToFolder";
 import { CreateEventModal } from "./modals/CreateEvent";
@@ -237,6 +238,8 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <DeleteMinecraftServerModal {...modalProps} />;
     case "select_minecraft_jar":
       return <SelectMinecraftJarModal {...modalProps} />;
+    case "change_minecraft_jar":
+      return <ChangeMinecraftJarModal {...modalProps} />;
     case "minecraft_text_editor":
       return <MinecraftTextEditorModal {...modalProps} />;
     case "upload_zip_to_folder":

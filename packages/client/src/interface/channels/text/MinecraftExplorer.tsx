@@ -140,6 +140,19 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
     });
   }
 
+  // CUSTOM: 最初に選んだjarが起動しない場合(古いForgeがJavaバージョン非互換でクラッシュする等)に、
+  // 展開済みデータはそのまま残してjarだけ後から切り替える
+  function openChangeMinecraftJarModal(server: McServer) {
+    openModal({
+      type: "change_minecraft_jar",
+      serverId: props.serverId,
+      mcId: server.mcId,
+      serverName: server.name,
+      currentJarPath: server.customJarPath,
+      onChanged: () => refreshOne(server.mcId),
+    });
+  }
+
   async function handleStart(server: McServer) {
     setBusy(true);
     try {
@@ -172,11 +185,13 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
     const trimmed = command().trim();
     if (!server || !trimmed) return;
 
+    // CUSTOM: RCON応答を待ってからではなく送信した時点で即座に入力欄を空にする
+    // (チャット入力欄と同じ挙動。応答待ち中も入力欄に古いコマンドが残って見えていた)
+    setCommand("");
     setSendingCommand(true);
     try {
       const response = await minecraftApi.sendCommand(props.serverId, server.mcId, trimmed);
       setLogLines((prev) => [...prev, `> ${trimmed}`, response]);
-      setCommand("");
       requestAnimationFrame(() => {
         if (logContainer) logContainer.scrollTop = logContainer.scrollHeight;
       });
@@ -265,6 +280,23 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
                           onPress={() => openSelectMinecraftJarModal(server)}
                         >
                           <Symbol size={14}>list</Symbol>
+                        </IconButton>
+                      </Show>
+                      <Show
+                        when={
+                          server.source === "UPLOAD" &&
+                          server.status !== "PENDING_JAR_SELECTION" &&
+                          server.status !== "RUNNING" &&
+                          server.status !== "STARTING" &&
+                          server.status !== "STOPPING"
+                        }
+                      >
+                        <IconButton
+                          size="xs"
+                          variant="standard"
+                          onPress={() => openChangeMinecraftJarModal(server)}
+                        >
+                          <Symbol size={14}>swap_horiz</Symbol>
                         </IconButton>
                       </Show>
                       <IconButton
