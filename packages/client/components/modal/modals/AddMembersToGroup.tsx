@@ -79,7 +79,7 @@ export function AddMembersToGroupModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <TextField
             value={filter()}

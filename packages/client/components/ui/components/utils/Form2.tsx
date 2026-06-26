@@ -450,6 +450,21 @@ function resetGeneric(group: IFormGroup, includingFields: boolean) {
 }
 
 /**
+ * Prevent the Enter key used to confirm IME composition (e.g. Japanese input)
+ * from being treated as an implicit form submission.
+ *
+ * MDUI's text-field / textarea calls `formController.submit()` on any Enter
+ * keydown without checking `isComposing`, so without this guard, confirming
+ * an IME conversion submits the form mid-input.
+ * @param event Keyboard event from the form's `onKeyDown`
+ */
+function preventComposingSubmit(event: KeyboardEvent) {
+  if (event.key === "Enter" && event.isComposing) {
+    event.preventDefault();
+  }
+}
+
+/**
  * Create a new submission handler
  * @param group Form Group
  * @param handler Handler for submission
@@ -501,4 +516,5 @@ export const Form2 = {
   Submit: FormSubmitButton,
   canSubmit,
   useSubmitHandler,
+  preventComposingSubmit,
 };

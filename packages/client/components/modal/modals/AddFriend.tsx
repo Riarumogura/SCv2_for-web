@@ -52,7 +52,7 @@ export function AddFriendModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Form2.TextField
           name="username"
           control={group.controls.username}

@@ -59,7 +59,7 @@ export function CreateStorageModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.TextField
             minlength={1}

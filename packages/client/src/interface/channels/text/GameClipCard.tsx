@@ -179,7 +179,7 @@ export function GameClipCard(props: GameClipCardProps) {
               value={commentBody()}
               onInput={(e) => setCommentBody((e.currentTarget as HTMLInputElement).value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") submitComment();
+                if (e.key === "Enter" && !e.isComposing) submitComment();
               }}
               disabled={isSubmittingComment()}
             />

@@ -74,7 +74,7 @@ export function EmojiList(props: { server: Server }) {
 
   return (
     <Column gap="lg">
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Row align>
             <Column>

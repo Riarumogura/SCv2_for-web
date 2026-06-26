@@ -158,7 +158,7 @@ export function ReportContentModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <div class={contentContainer()}>
             {props.target instanceof User ? (

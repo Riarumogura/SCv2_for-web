@@ -54,7 +54,7 @@ export function CreateWebhookModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Form2.TextField
           minlength={1}
           maxlength={32}

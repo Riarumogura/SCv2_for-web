@@ -141,7 +141,7 @@ export function CreateMinecraftServerModal(
       ]}
       isDisabled={group.isPending || uploading()}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <ModeToggle>
             <ModeButton type="button" data-active={mode() === "new"} onClick={() => setMode("new")}>

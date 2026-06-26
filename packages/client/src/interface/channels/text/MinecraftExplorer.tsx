@@ -348,7 +348,7 @@ export function MinecraftExplorer(props: MinecraftExplorerProps) {
                       disabled={sendingCommand()}
                       onInput={(e) => setCommand(e.currentTarget.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        if (e.key === "Enter" && !e.isComposing) {
                           e.preventDefault();
                           handleSendCommand();
                         }

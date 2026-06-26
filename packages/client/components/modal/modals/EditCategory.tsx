@@ -57,7 +57,7 @@ export function EditCategoryModal(
       ]}
       isDisabled={!Form2.canSubmit(group)}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.TextField
             name="category_name"

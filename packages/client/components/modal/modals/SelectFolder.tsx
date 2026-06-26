@@ -244,7 +244,7 @@ export function SelectFolderModal(
             type="text"
             placeholder="Enter folder name"
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && !e.isComposing) {
                 const newFolderName = e.currentTarget.value;
                 if (newFolderName) {
                   const newPath = currentPath() 

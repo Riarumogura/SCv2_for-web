@@ -55,7 +55,7 @@ function FormTest() {
   const submit = Form2.useSubmitHandler(group, onSubmit);
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
       <label for="name">Your name</label>
       <Form2.TextField
         minlength={1}

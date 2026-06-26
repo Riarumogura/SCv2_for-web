@@ -103,7 +103,7 @@ export default function ChannelOverview(props: ChannelSettingsProps) {
 
   return (
     <Column gap="xl">
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Text class="label">
             <Trans>Channel Info</Trans>

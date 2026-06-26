@@ -49,7 +49,7 @@ export function LeaveServerModal(
       ]}
       isDisabled={leaveServer.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Text>
             <Trans>

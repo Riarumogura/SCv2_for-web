@@ -50,7 +50,7 @@ export function RenameSessionModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.TextField
             //TODO: the length should probably be limited here, I couldn't find the server-side validator

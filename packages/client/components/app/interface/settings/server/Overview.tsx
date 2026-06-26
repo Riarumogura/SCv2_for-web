@@ -216,7 +216,7 @@ export default function ServerOverview(props: ServerSettingsProps) {
 
   return (
     <Column gap="xl">
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.FileInput
             control={editGroup.controls.icon}

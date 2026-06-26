@@ -89,7 +89,7 @@ export function ViewWebhook(props: { webhook: ChannelWebhook }) {
 
   return (
     <Column gap="xl">
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.FileInput
             control={editGroup.controls.avatar}

@@ -4,7 +4,7 @@ import { createSignal, For, JSX, Show } from "solid-js";
 import { useLingui } from "@lingui-solid/solid/macro";
 
 import { useError } from "@revolt/i18n";
-import { Checkbox, Column, iconSize, Text, TextField } from "@revolt/ui";
+import { Checkbox, Column, Form2, iconSize, Text, TextField } from "@revolt/ui";
 import { styled } from "styled-system/jsx";
 
 import MdError from "@material-design-icons/svg/filled/error.svg?component-solid";
@@ -175,7 +175,7 @@ export function Form(props: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={onSubmit} onKeyDown={Form2.preventComposingSubmit}>
       <Column gap="lg">
         {props.children}
         <Show when={error()}>

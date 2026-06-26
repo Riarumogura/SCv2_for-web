@@ -52,7 +52,7 @@ export function BanNonMemberModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column align>
           <Avatar src={props.user?.animatedAvatarURL} size={64} />
           <Text>

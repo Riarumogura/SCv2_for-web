@@ -89,7 +89,7 @@ export function MFAEnableTOTPModal(
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Text>
             <Trans>

@@ -97,7 +97,7 @@ export function AddBotModal(props: DialogProps & Modals & { type: "add_bot" }) {
       ]}
       isDisabled={group.isPending}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Column align>
             <Avatar

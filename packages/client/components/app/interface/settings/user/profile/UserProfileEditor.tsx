@@ -149,7 +149,7 @@ export function UserProfileEditor(props: Props) {
   const submit = Form2.useSubmitHandler(editGroup, onSubmit, onReset);
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
       <Column>
         <Form2.FileInput
           control={editGroup.controls.avatar}

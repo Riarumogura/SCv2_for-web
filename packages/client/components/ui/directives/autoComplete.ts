@@ -137,7 +137,7 @@ export function autoComplete(
   ) {
     const current = state();
     if (current.matched !== "none") {
-      if (event.key === "Enter" || event.key === "Tab") {
+      if (!event.isComposing && (event.key === "Enter" || event.key === "Tab")) {
         event.preventDefault();
         select(selection());
         return;

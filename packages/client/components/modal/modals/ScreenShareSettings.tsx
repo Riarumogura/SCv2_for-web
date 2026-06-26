@@ -71,7 +71,7 @@ export function ScreenShareSettingsModal(
           "justify-self": "center",
         }}
       />
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column>
           <Form2.ButtonGroup
             control={group.controls.qualityName}

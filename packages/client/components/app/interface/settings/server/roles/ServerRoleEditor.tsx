@@ -92,7 +92,7 @@ export function ServerRoleEditor(props: { context: Server; roleId: string }) {
 
   return (
     <Column>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onKeyDown={Form2.preventComposingSubmit}>
         <Column gap="lg">
           <Form2.TextField
             minlength={1}
