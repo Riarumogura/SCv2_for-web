@@ -98,7 +98,12 @@ export default defineConfig({
     sourcemap: true,
   },
   optimizeDeps: {
-    exclude: ["hast"],
+    // CUSTOM: @ffmpeg/ffmpegは内部で `new Worker(new URL("./worker.js", import.meta.url))`
+    // を使ってWorkerを生成している。esbuildのdep prebundleにかけるとこの相対URL解決が
+    // 壊れ、ffmpeg.load()がworkerからの応答を永遠に待ち続けてハングする
+    // (スタンプ作成で変換が終わらない不具合の原因)。除外してVite自身のworker検出付き
+    // transformを通す。
+    exclude: ["hast", "@ffmpeg/ffmpeg", "@ffmpeg/util"],
   },
   resolve: {
     alias: {

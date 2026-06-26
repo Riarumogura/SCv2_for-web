@@ -24,6 +24,7 @@ import { Row } from "@revolt/ui/components/layout";
 
 import { EmojiPicker } from "./EmojiPicker";
 import { GifPicker } from "./GifPicker";
+import { StampPicker } from "./StampPicker";
 
 interface Props {
   /**
@@ -35,6 +36,7 @@ interface Props {
     ref: Ref<any>;
     onClickGif: () => void;
     onClickEmoji: () => void;
+    onClickStamp: () => void;
   }) => JSX.Element;
 
   /**
@@ -46,15 +48,35 @@ interface Props {
    * Text replacement
    */
   onTextReplacement: (node: string) => void;
+
+  /**
+   * CUSTOM: 現在のサーバーID。スタンプ一覧はサーバー単位のため必要
+   * (GIF/Emojiピッカーはサーバーに依存しないため元々このPropsにはなかった)。
+   * DM等サーバー外のチャンネルではスタンプタブを使わないためundefined許容。
+   */
+  serverId?: string;
+
+  /**
+   * CUSTOM: スタンプをチャット添付ファイルとして送信する。
+   * GIFと同じ「URLをそのまま本文として送ってjanuaryにEmbed化させる」方式は、
+   * セルフホスト環境ではjanuaryのSSRF対策(プライベートIP帯への接続拒否)や
+   * ルーターのNATループバック非対応により機能しないことが判明したため、
+   * 既存の画像/動画添付と同じ経路(Autumnへの直接アップロード+attachments付き
+   * メッセージ送信)を使う。
+   */
+  onSendAttachment?: (file: Blob, filename: string) => void | Promise<void>;
 }
 
 export const CompositionMediaPickerContext = createContext(
-  null as unknown as Pick<Props, "onMessage" | "onTextReplacement">,
+  null as unknown as Pick<
+    Props,
+    "onMessage" | "onTextReplacement" | "onSendAttachment"
+  >,
 );
 
 export function CompositionMediaPicker(props: Props) {
   const [anchor, setAnchor] = createSignal<HTMLElement>();
-  const [show, setShow] = createSignal<"gif" | "emoji">();
+  const [show, setShow] = createSignal<"gif" | "emoji" | "stamp">();
 
   return (
     <CompositionMediaPickerContext.Provider value={props}>
@@ -64,6 +86,8 @@ export function CompositionMediaPicker(props: Props) {
           setShow((current) => (current === "gif" ? undefined : "gif")),
         onClickEmoji: () =>
           setShow((current) => (current === "emoji" ? undefined : "emoji")),
+        onClickStamp: () =>
+          setShow((current) => (current === "stamp" ? undefined : "stamp")),
       })}
       <Portal mount={document.getElementById("floating")!}>
         <Presence>
@@ -80,6 +104,8 @@ export function CompositionMediaPicker(props: Props) {
                 setShow={setShow}
                 onMessage={props.onMessage}
                 onTextReplacement={props.onTextReplacement}
+                onSendAttachment={props.onSendAttachment}
+                serverId={props.serverId}
               />
             </Motion>
           </Show>
@@ -90,10 +116,13 @@ export function CompositionMediaPicker(props: Props) {
 }
 
 function Picker(
-  props: Pick<Props, "onMessage" | "onTextReplacement"> & {
+  props: Pick<
+    Props,
+    "onMessage" | "onTextReplacement" | "onSendAttachment" | "serverId"
+  > & {
     anchor: Accessor<HTMLElement | undefined>;
-    show: Accessor<"gif" | "emoji" | undefined>;
-    setShow: Setter<"gif" | "emoji" | undefined>;
+    show: Accessor<"gif" | "emoji" | "stamp" | undefined>;
+    setShow: Setter<"gif" | "emoji" | "stamp" | undefined>;
   },
 ) {
   const [floating, setFloating] = createSignal<HTMLDivElement>();
@@ -131,10 +160,22 @@ function Picker(
           <Button
             groupActive={props.show() === "emoji"}
             onPress={() => props.setShow("emoji")}
-            group="connected-end"
+            group={props.onSendAttachment ? "connected" : "connected-end"}
           >
             Emoji
           </Button>
+          {/* CUSTOM: スタンプの送信にはonSendAttachmentが必要。リアクション用の
+              ピッカー(MessageToolbar.tsx等)はこれを渡さないため、その文脈では
+              スタンプタブ自体を表示しない */}
+          <Show when={props.onSendAttachment}>
+            <Button
+              groupActive={props.show() === "stamp"}
+              onPress={() => props.setShow("stamp")}
+              group="connected-end"
+            >
+              スタンプ
+            </Button>
+          </Show>
         </Row>
 
         <Switch fallback={<span>Not available yet.</span>}>
@@ -143,6 +184,9 @@ function Picker(
           </Match>
           <Match when={props.show() === "emoji"}>
             <EmojiPicker />
+          </Match>
+          <Match when={props.show() === "stamp" && props.onSendAttachment}>
+            <StampPicker serverId={props.serverId} />
           </Match>
         </Switch>
       </Container>

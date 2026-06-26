@@ -55,7 +55,7 @@ export function MessageComposition(props: Props) {
   const state = useState();
   const { t } = useLingui();
   const client = useClient();
-  const { openModal } = useModals();
+  const { openModal, showError } = useModals();
 
   const currentSlowmode = (): UserSlowmodes | undefined => {
     return client().userSlowmodes.get(props.channel.id);
@@ -278,6 +278,41 @@ export function MessageComposition(props: Props) {
   }
 
   /**
+   * CUSTOM: スタンプをAutumnへ添付ファイルとしてアップロードし、
+   * 通常の画像添付と同じ経路(attachments付きメッセージ)で送信する。
+   * Draft.tsのsendDraft内のアップロード処理(287行目付近)と同じAPIを
+   * 直接叩く簡易版 — スタンプは進捗表示やドラフト保存が不要な
+   * 即時送信のため、ドラフトシステムを経由しない。
+   */
+  async function sendStampAttachment(file: Blob, filename: string) {
+    if (currentSlowmode()) return;
+
+    try {
+      const body = new FormData();
+      body.set("file", file, filename);
+
+      const [authHeader, authHeaderValue] = client().authenticationHeader;
+      const response = await fetch(
+        `${client().configuration!.features.autumn.url}/attachments`,
+        {
+          method: "POST",
+          body,
+          headers: { [authHeader]: authHeaderValue },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`アップロードに失敗しました: ${response.status}`);
+      }
+
+      const { id } = await response.json();
+      await props.channel.sendMessage({ attachments: [id] });
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  /**
    * Shorthand for updating the draft
    */
   function setContent(content: string) {
@@ -472,6 +507,8 @@ export function MessageComposition(props: Props) {
               <CompositionMediaPicker
                 onMessage={sendMessage}
                 onTextReplacement={(text) => setNodeReplacement([text])}
+                onSendAttachment={sendStampAttachment}
+                serverId={props.channel.serverId}
               >
                 {(triggerProps) => (
                   <>
@@ -485,6 +522,13 @@ export function MessageComposition(props: Props) {
                         <Symbol>emoticon</Symbol>
                       </IconButton>
                     </MessageBox.InlineIcon>
+                    <Show when={props.channel.serverId}>
+                      <MessageBox.InlineIcon size="normal">
+                        <IconButton onPress={triggerProps.onClickStamp}>
+                          <Symbol>ar_stickers</Symbol>
+                        </IconButton>
+                      </MessageBox.InlineIcon>
+                    </Show>
 
                     <div ref={triggerProps.ref} />
                   </>

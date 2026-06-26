@@ -4,6 +4,7 @@ import {
   BiSolidGroup,
   BiSolidHappyBeaming,
   BiSolidInfoCircle,
+  BiSolidSticker,
   BiSolidTrash,
   BiSolidUserX,
 } from "solid-icons/bi";
@@ -24,6 +25,7 @@ import { EmojiList } from "./server/emojis/EmojiList";
 import { ListServerInvites } from "./server/invites/ListServerInvites";
 import { ServerRoleEditor } from "./server/roles/ServerRoleEditor";
 import { ServerRoleOverview } from "./server/roles/ServerRoleOverview";
+import { StampList } from "./server/stamps/StampList";
 
 const Config: SettingsConfiguration<Server> = {
   /**
@@ -72,6 +74,8 @@ const Config: SettingsConfiguration<Server> = {
         return <Overview server={server} />;
       case "emojis":
         return <EmojiList server={server} />;
+      case "stamps":
+        return <StampList server={server} />;
       case "roles":
         return <ServerRoleOverview context={server} />;
       case "invites":
@@ -114,6 +118,12 @@ const Config: SettingsConfiguration<Server> = {
               id: "emojis",
               icon: <BiSolidHappyBeaming size={20} />,
               title: <Trans>Emojis</Trans>,
+            },
+            {
+              id: "stamps",
+              icon: <BiSolidSticker size={20} />,
+              // CUSTOM: lingui未コンパイル問題を避けるため日本語ハードコード
+              title: "スタンプ",
             },
           ],
         },
