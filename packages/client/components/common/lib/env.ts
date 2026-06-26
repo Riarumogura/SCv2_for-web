@@ -80,6 +80,20 @@ export default {
     (import.meta.env.VITE_MC_MANAGER_API_URL as string) ??
     "http://local.sawarachats.chat/mc-manager/api/v1",
   /**
+   * What GameClips API server to connect to by default.
+   */
+  DEFAULT_GAMECLIPS_API_URL:
+    (import.meta.env.DEV ? import.meta.env.VITE_DEV_GAMECLIPS_API_URL : undefined) ??
+    (import.meta.env.VITE_GAMECLIPS_API_URL as string) ??
+    "http://local.sawarachats.chat/gameclips/api/v1",
+  /**
+   * What GameClips WebSocket server to connect to by default.
+   */
+  DEFAULT_GAMECLIPS_WS_URL:
+    (import.meta.env.DEV ? import.meta.env.VITE_DEV_GAMECLIPS_WS_URL : undefined) ??
+    (import.meta.env.VITE_GAMECLIPS_WS_URL as string) ??
+    "ws://local.sawarachats.chat/gameclips/api/v1",
+  /**
    * hCaptcha site key to use if enabled
    */
   HCAPTCHA_SITEKEY: import.meta.env.VITE_HCAPTCHA_SITEKEY as string,
@@ -102,6 +116,12 @@ export default {
    */
   MAX_FILE_SIZE:
     (import.meta.env.VITE_CFG_MAX_FILE_SIZE as number) ?? 20_000_000,
+  /**
+   * Max file size allowed for GameClips uploads (in bytes)
+   * 100 MB = 100,000,000 bytes。動画クリップを想定し、チャット添付・アルバムより大きい上限を許容する。
+   */
+  MAX_GAMECLIPS_FILE_SIZE:
+    (import.meta.env.VITE_CFG_GAMECLIPS_MAX_FILE_SIZE as number) ?? 100_000_000,
   /**
    * RNNoise worklet CDN host location. Defaults to blank, which uses the url provided by the livekit-rnnoise-processor package.
    */

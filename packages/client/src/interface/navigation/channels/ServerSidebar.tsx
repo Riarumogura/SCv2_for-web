@@ -44,12 +44,14 @@ import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?com
 import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
 import MdCalendar from "@material-symbols/svg-400/outlined/calendar_month-fill.svg?component-solid";
 import MdAlbum from "@material-symbols/svg-400/outlined/photo_library-fill.svg?component-solid";
+import MdGameClips from "@material-symbols/svg-400/outlined/videocam-fill.svg?component-solid";
 import MdMinecraft from "@material-symbols/svg-400/outlined/sports_esports-fill.svg?component-solid";
 
 import { useStorageApi, StorageConfig } from "../../../api/storage";
 import { requestOpenStorage } from "../../../api/storageExplorerSignal";
 import { requestOpenCalendar } from "../../../api/calendarExplorerSignal";
 import { requestOpenAlbum } from "../../../api/albumExplorerSignal";
+import { requestOpenGameClips } from "../../../api/gameClipsExplorerSignal";
 import { useMinecraftApi, McServer, MC_STATUS_LABELS } from "../../../api/minecraft";
 import { requestOpenMinecraft } from "../../../api/minecraftExplorerSignal";
 
@@ -307,6 +309,11 @@ export const ServerSidebar = (props: Props) => {
     requestOpenAlbum({ serverId: props.server.id });
   };
 
+  // CUSTOM: GameClipsを開く
+  const openGameClips = () => {
+    requestOpenGameClips({ serverId: props.server.id });
+  };
+
   // CUSTOM: トレードカラー設定モーダルを開く
   const openTradeColorSettings = () => {
     openModal({
@@ -502,6 +509,17 @@ export const ServerSidebar = (props: Props) => {
             <Row align gap="sm">
               <MdAlbum {...iconSize(16)} />
               <span style={{ "font-weight": "bold" }}>アルバム</span>
+            </Row>
+          </SidebarMenuHeader>
+        </SidebarMenuSection>
+
+        {/* CUSTOM: GameClipsメニュー。カテゴリ作成はパネル内のカテゴリタブから行うため、
+            ここには歯車アイコンは置かない */}
+        <SidebarMenuSection>
+          <SidebarMenuHeader onClick={openGameClips}>
+            <Row align gap="sm">
+              <MdGameClips {...iconSize(16)} />
+              <span style={{ "font-weight": "bold" }}>GameClips</span>
             </Row>
           </SidebarMenuHeader>
         </SidebarMenuSection>

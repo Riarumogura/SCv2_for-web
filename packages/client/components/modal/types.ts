@@ -29,6 +29,7 @@ import type { ChangelogResponse } from "./modals/Changelog";
 import type { StorageConfig } from "../../src/api/storage";
 import type { CalendarEvent } from "../../src/api/calendar";
 import type { Album, AlbumCategory } from "../../src/api/album";
+import type { GameClip, GameClipCategory } from "../../src/api/gameclips";
 import type { Stamp } from "../../src/api/stamp";
 
 export type Modals =
@@ -486,4 +487,28 @@ export type Modals =
       type: "create_album_category";
       serverId: string;
       onCreated?: (category: AlbumCategory) => void;
+    }
+  | {
+      type: "create_gameclip";
+      serverId: string;
+      categoryId?: string;
+      onCreated?: () => void;
+    }
+  | {
+      type: "edit_gameclip";
+      serverId: string;
+      gameClip: GameClip;
+      onUpdated?: () => void;
+      onDeleted?: () => void;
+    }
+  | {
+      type: "delete_gameclip";
+      serverId: string;
+      gameClipId: string;
+      onDeleted?: () => void;
+    }
+  | {
+      type: "create_gameclip_category";
+      serverId: string;
+      onCreated?: (category: GameClipCategory) => void;
     };

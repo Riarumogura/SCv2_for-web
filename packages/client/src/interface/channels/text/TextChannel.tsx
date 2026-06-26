@@ -47,6 +47,10 @@ import {
   pendingAlbumOpen,
 } from "../../../api/albumExplorerSignal";
 import {
+  consumePendingGameClipsOpen,
+  pendingGameClipsOpen,
+} from "../../../api/gameClipsExplorerSignal";
+import {
   consumePendingMinecraftOpen,
   pendingMinecraftOpen,
 } from "../../../api/minecraftExplorerSignal";
@@ -57,6 +61,7 @@ import { TextSearchSidebar } from "./TextSearchSidebar";
 import { StorageExplorer } from "./StorageExplorer";
 import { CalendarExplorer } from "./CalendarExplorer";
 import { AlbumExplorer } from "./AlbumExplorer";
+import { GameClipsExplorer } from "./GameClipsExplorer";
 import { MinecraftExplorer } from "./MinecraftExplorer";
 
 /**
@@ -79,6 +84,9 @@ export type SidebarState =
     }
   | {
       state: "album";
+    }
+  | {
+      state: "gameclips";
     }
   | {
       state: "minecraft";
@@ -251,6 +259,38 @@ export function TextChannel(props: ChannelPageProps) {
     window.removeEventListener("mouseup", onAlbumResizeUp);
   });
 
+  // CUSTOM: GameClipsパネルの幅をユーザーがドラッグで調整できるようにする(アルバムと同パターン)
+  const [gameClipsWidth, setGameClipsWidth] = createSignal(760);
+  let resizingGameClips = false;
+  let gameClipsResizeStartX = 0;
+  let gameClipsResizeStartWidth = 0;
+
+  function onGameClipsResizeMove(e: MouseEvent) {
+    if (!resizingGameClips) return;
+    const delta = gameClipsResizeStartX - e.clientX;
+    setGameClipsWidth(Math.min(1000, Math.max(360, gameClipsResizeStartWidth + delta)));
+  }
+
+  function onGameClipsResizeUp() {
+    resizingGameClips = false;
+    window.removeEventListener("mousemove", onGameClipsResizeMove);
+    window.removeEventListener("mouseup", onGameClipsResizeUp);
+  }
+
+  function onGameClipsResizeDown(e: MouseEvent) {
+    e.preventDefault();
+    resizingGameClips = true;
+    gameClipsResizeStartX = e.clientX;
+    gameClipsResizeStartWidth = gameClipsWidth();
+    window.addEventListener("mousemove", onGameClipsResizeMove);
+    window.addEventListener("mouseup", onGameClipsResizeUp);
+  }
+
+  onCleanup(() => {
+    window.removeEventListener("mousemove", onGameClipsResizeMove);
+    window.removeEventListener("mouseup", onGameClipsResizeUp);
+  });
+
   // todo: in the future maybe persist per ID?
   createEffect(
     on(
@@ -283,6 +323,15 @@ export function TextChannel(props: ChannelPageProps) {
     if (request && request.serverId === props.channel.serverId) {
       setSidebarState({ state: "album" });
       consumePendingAlbumOpen();
+    }
+  });
+
+  // CUSTOM: ServerSidebarのGameClipsメニュークリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    const request = pendingGameClipsOpen();
+    if (request && request.serverId === props.channel.serverId) {
+      setSidebarState({ state: "gameclips" });
+      consumePendingGameClipsOpen();
     }
   });
 
@@ -376,23 +425,30 @@ export function TextChannel(props: ChannelPageProps) {
                   ? `${calendarWidth()}px`
                   : sidebarState().state === "album"
                     ? `${albumWidth()}px`
-                    : sidebarState().state === "minecraft"
-                      ? "480px"
-                      : sidebarState().state !== "default"
-                        ? "360px"
-                        : "",
+                    : sidebarState().state === "gameclips"
+                      ? `${gameClipsWidth()}px`
+                      : sidebarState().state === "minecraft"
+                        ? "480px"
+                        : sidebarState().state !== "default"
+                          ? "360px"
+                          : "",
               position:
-                sidebarState().state === "calendar" || sidebarState().state === "album"
+                sidebarState().state === "calendar" ||
+                sidebarState().state === "album" ||
+                sidebarState().state === "gameclips"
                   ? "relative"
                   : undefined,
             }}
           >
-            {/* CUSTOM: カレンダー/アルバムパネルの左端をドラッグして幅を調整するハンドル */}
+            {/* CUSTOM: カレンダー/アルバム/GameClipsパネルの左端をドラッグして幅を調整するハンドル */}
             <Show when={sidebarState().state === "calendar"}>
               <ResizeHandle onMouseDown={onCalendarResizeDown} />
             </Show>
             <Show when={sidebarState().state === "album"}>
               <ResizeHandle onMouseDown={onAlbumResizeDown} />
+            </Show>
+            <Show when={sidebarState().state === "gameclips"}>
+              <ResizeHandle onMouseDown={onGameClipsResizeDown} />
             </Show>
             <Switch
               fallback={
@@ -510,6 +566,35 @@ export function TextChannel(props: ChannelPageProps) {
                     </Tooltip>
                   </SidebarHeaderRow>
                   <AlbumExplorer serverId={props.channel.serverId} />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "gameclips"}>
+                {/* CUSTOM: WideSidebarContainerは幅360px固定だが、GameClipsは外側のスクロール
+                    コンテナ側でgameClipsWidthに広げているため、幅100%で追従させる(アルバムと同パターン) */}
+                <WideSidebarContainer
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    "flex-direction": "column",
+                  }}
+                >
+                  <SidebarHeaderRow>
+                    <Text class="label" size="large">
+                      GameClips
+                    </Text>
+                    {/* CUSTOM: GameClipsを閉じてチャットのみの表示に戻すボタン */}
+                    <Tooltip content="GameClipsを閉じる" placement="top">
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => setSidebarState({ state: "default" })}
+                      >
+                        <Symbol size={16}>close</Symbol>
+                      </IconButton>
+                    </Tooltip>
+                  </SidebarHeaderRow>
+                  <GameClipsExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
               <Match when={sidebarState().state === "minecraft"}>

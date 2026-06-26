@@ -81,6 +81,10 @@ import { CreateAlbumModal } from "./modals/CreateAlbum";
 import { EditAlbumModal } from "./modals/EditAlbum";
 import { DeleteAlbumModal } from "./modals/DeleteAlbum";
 import { CreateAlbumCategoryModal } from "./modals/CreateAlbumCategory";
+import { CreateGameClipModal } from "./modals/CreateGameClip";
+import { EditGameClipModal } from "./modals/EditGameClip";
+import { DeleteGameClipModal } from "./modals/DeleteGameClip";
+import { CreateGameClipCategoryModal } from "./modals/CreateGameClipCategory";
 
 /**
  * Render the modal
@@ -238,6 +242,14 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <DeleteAlbumModal {...modalProps} />;
     case "create_album_category":
       return <CreateAlbumCategoryModal {...modalProps} />;
+    case "create_gameclip":
+      return <CreateGameClipModal {...modalProps} />;
+    case "edit_gameclip":
+      return <EditGameClipModal {...modalProps} />;
+    case "delete_gameclip":
+      return <DeleteGameClipModal {...modalProps} />;
+    case "create_gameclip_category":
+      return <CreateGameClipCategoryModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
     case "create_stamp":
