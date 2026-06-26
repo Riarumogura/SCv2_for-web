@@ -1,7 +1,14 @@
 // CUSTOM: アルバムパネル本体。上部1/4程度に検索フォーム(カレンダー検索/条件検索を
 // 切り替え可能)、残りにアルバムページ(選択した日付のアルバム、または検索結果から
 // 開いたアルバムを縦に並べて表示)を配置する。
-import { For, Show, createMemo, createResource, createSignal } from "solid-js";
+import {
+  ErrorBoundary,
+  For,
+  Show,
+  createMemo,
+  createResource,
+  createSignal,
+} from "solid-js";
 import { styled } from "styled-system/jsx";
 
 import env from "@revolt/common/lib/env";
@@ -103,6 +110,20 @@ export function AlbumExplorer(props: AlbumExplorerProps) {
   const openedResult = createMemo(() => searchResults()?.find((album) => album.id === openedResultId()));
 
   return (
+    // CUSTOM: dateAlbums/categories(createResource)はエラー状態で読み取ると例外を
+    // re-throwする(Suspense/ErrorBoundary向けのSolidJSの仕様)。album-apiが落ちている等で
+    // 失敗した場合、ErrorBoundaryが無いとこの例外がチャンネル全体の表示まで巻き込んで
+    // 無限ローディングスピナーにしてしまうため、ここで握りつぶしてアルバムパネル内に
+    // エラー表示を留める。
+    <ErrorBoundary
+      fallback={() => (
+        <Container>
+          <SearchSection>
+            <EmptyHint>アルバムの読み込みに失敗しました。album-apiに接続できないか、サーバー側でエラーが発生しています。</EmptyHint>
+          </SearchSection>
+        </Container>
+      )}
+    >
     <Container>
       <SearchSection>
         <ModeToggle>
@@ -211,6 +232,7 @@ export function AlbumExplorer(props: AlbumExplorerProps) {
         </Show>
       </AlbumPageSection>
     </Container>
+    </ErrorBoundary>
   );
 }
 
@@ -368,7 +390,12 @@ function AlbumBlock(props: AlbumBlockProps) {
           </Tooltip>
         </BlockActions>
       </BlockHeader>
-      <AlbumPhotoGrid photos={photos() ?? []} />
+      {/* CUSTOM: photos()(createResource)はエラー時に読み取ると例外をre-throwするため、
+          1つのアルバムの写真取得が失敗しても他のアルバムブロックまで巻き込まないように
+          ここでも個別にErrorBoundaryで止める */}
+      <ErrorBoundary fallback={<EmptyHint>写真の読み込みに失敗しました</EmptyHint>}>
+        <AlbumPhotoGrid photos={photos() ?? []} />
+      </ErrorBoundary>
     </Block>
   );
 }

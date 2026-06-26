@@ -2,7 +2,7 @@
 // CUSTOM: lingui(<Trans>/t)はi18nカタログ未コンパイルのためハッシュ文字列で表示されてしまう
 // (storage系モーダルの既知バグと同種)。この機能では日本語をハードコードして回避する。
 import { createFormControl, createFormGroup } from "solid-forms";
-import { For, Show, createResource, createSignal } from "solid-js";
+import { ErrorBoundary, For, Show, createResource, createSignal } from "solid-js";
 import { styled } from "styled-system/jsx";
 
 import { useClient } from "@revolt/client";
@@ -157,6 +157,9 @@ export function CreateAlbumModal(
                 </IconButton>
               </Tooltip>
             </Row>
+            {/* CUSTOM: categories()(createResource)はエラー時に読み取ると例外をre-throwするため、
+                カテゴリ取得に失敗してもモーダル全体が壊れないようにErrorBoundaryで止める */}
+            <ErrorBoundary fallback={<EmptyHint>カテゴリの取得に失敗しました</EmptyHint>}>
             <PickerList>
               <Show
                 when={(categories()?.length ?? 0) > 0}
@@ -177,6 +180,7 @@ export function CreateAlbumModal(
                 </For>
               </Show>
             </PickerList>
+            </ErrorBoundary>
           </div>
 
           <Form2.Select label="閲覧権限" control={group.controls.viewPermission}>
