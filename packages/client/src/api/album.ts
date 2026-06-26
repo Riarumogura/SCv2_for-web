@@ -72,8 +72,11 @@ export interface AlbumPhoto {
   id: string;
   albumId: string;
   serverId: string;
-  autumnId: string;
-  tag: string;
+  // CUSTOM: /photos/:fileId/file(album-apiの無認証配信ルート)で実体を取得するための
+  // 公開ID。Autumnのused_for(実際にメッセージ等として使われたか)を満たせず常に404に
+  // なる問題を避けるため、アルバムの写真・動画はAutumnを使わず専用MinIOバケットに
+  // 保存している(getPhotoFileUrl参照)
+  fileId: string;
   filename?: string;
   contentType?: string;
   metadata: AlbumPhotoMetadata;
@@ -82,13 +85,10 @@ export interface AlbumPhoto {
   uploadedAt: string;
 }
 
-export interface AddPhotoRequest {
-  autumnId: string;
-  tag: string;
-  filename?: string;
-  contentType?: string;
-  metadata: AlbumPhotoMetadata;
-  size?: number;
+export interface AddPhotoMetadata {
+  type: AlbumPhotoMetadata["type"];
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -271,22 +271,45 @@ export class AlbumApiClient {
     return response.json();
   }
 
-  async addPhoto(serverId: string, albumId: string, data: AddPhotoRequest): Promise<AlbumPhoto> {
+  // CUSTOM: ファイルの実体をmultipart/form-dataでalbum-apiに直接アップロードする
+  // (Autumnのused_for問題を避けるため、専用MinIOバケットに保存する方式)。
+  // Content-Typeはbrowserがboundary付きで自動設定するため、ここでは手動設定しない
+  async addPhoto(
+    serverId: string,
+    albumId: string,
+    file: globalThis.File,
+    metadata: AddPhotoMetadata,
+  ): Promise<AlbumPhoto> {
     const headers = await this.getAuthHeaders(serverId);
+    const { "Content-Type": _, ...restHeaders } = headers as Record<string, string>;
+
+    const body = new FormData();
+    body.set("file", file, file.name);
+    body.set("type", metadata.type);
+    if (metadata.width !== undefined) body.set("width", String(metadata.width));
+    if (metadata.height !== undefined) body.set("height", String(metadata.height));
+
     const response = await fetch(`${this.baseUrl}/albums/${albumId}/photos`, {
       method: "POST",
-      headers,
-      body: JSON.stringify(data),
+      headers: restHeaders,
+      body,
     });
 
     if (response.status === 403) {
-      const body = await response.json().catch(() => null);
-      throw new Error(body?.error || "この写真を追加する権限がありません");
+      const responseBody = await response.json().catch(() => null);
+      throw new Error(responseBody?.error || "この写真を追加する権限がありません");
     }
     if (!response.ok) {
       throw new Error(`写真の追加に失敗しました: ${response.status}`);
     }
     return response.json();
+  }
+
+  /**
+   * 写真・動画の実体を直接表示/ダウンロードするためのURL(無認証で取得可能)
+   */
+  getPhotoFileUrl(fileId: string): string {
+    return `${this.baseUrl}/photos/${fileId}/file`;
   }
 
   async deletePhoto(serverId: string, albumId: string, photoId: string): Promise<void> {

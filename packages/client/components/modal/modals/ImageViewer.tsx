@@ -19,6 +19,15 @@ import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import { Modals } from "../types";
 
+// CUSTOM: stoat.js Fileのhumanizeable Sizeゲッターと同じロジック。customFileは
+// stoat.js Fileではないため、ここで同じフォーマットを再現する
+function humanReadableSize(size?: number): string {
+  if (!size) return "Unknown size";
+  if (size > 1e6) return `${(size / 1e6).toFixed(2)} MB`;
+  if (size > 1e3) return `${(size / 1e3).toFixed(2)} KB`;
+  return `${size} B`;
+}
+
 export function ImageViewerModal(
   props: DialogProps & Modals & { type: "image_viewer" },
 ) {
@@ -106,6 +115,16 @@ export function ImageViewerModal(
                         </Column>
                       </Card>
                     </Match>
+                    <Match when={props.customFile}>
+                      <Card onClick={(e) => e.stopPropagation()}>
+                        <Column>
+                          <Text class="title">{props.customFile!.filename}</Text>
+                          <Text class="label">
+                            {humanReadableSize(props.customFile!.size)}
+                          </Text>
+                        </Column>
+                      </Card>
+                    </Match>
                   </Switch>
                   <Card onClick={(e) => e.stopPropagation()}>
                     <IconButton onPress={() => panzoom?.zoomOut()}>
@@ -119,6 +138,17 @@ export function ImageViewerModal(
                         target="_blank"
                         href={props.file?.originalUrl}
                         download={props.file?.filename}
+                      >
+                        <IconButton>
+                          <Symbol>download</Symbol>
+                        </IconButton>
+                      </a>
+                    </Show>
+                    <Show when={props.customFile}>
+                      <a
+                        target="_blank"
+                        href={props.customFile?.url}
+                        download={props.customFile?.filename}
                       >
                         <IconButton>
                           <Symbol>download</Symbol>
@@ -168,6 +198,29 @@ export function ImageViewerModal(
                       "aspect-ratio": `${(props.file!.metadata as { width: number }).width}/${(props.file!.metadata as { height: number }).height}`,
                     }}
                     src={props.file!.originalUrl}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Match>
+                {/* CUSTOM: customFile(Autumn以外、アルバム機能のMinIO直接配信)。
+                    動画にはPanzoomを適用しない(動画再生のMatchと同じ理由) */}
+                <Match when={props.customFile?.metadata.type === "Video"}>
+                  <Video
+                    controls
+                    preload="metadata"
+                    style={{
+                      "aspect-ratio": `${props.customFile!.metadata.width}/${props.customFile!.metadata.height}`,
+                    }}
+                    src={props.customFile!.url}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Match>
+                <Match when={props.customFile}>
+                  <Image
+                    ref={setRef}
+                    style={{
+                      "aspect-ratio": `${props.customFile!.metadata.width}/${props.customFile!.metadata.height}`,
+                    }}
+                    src={props.customFile!.url}
                     onClick={(e) => e.stopPropagation()}
                   />
                 </Match>

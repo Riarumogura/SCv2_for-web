@@ -12,7 +12,6 @@ import {
 import { styled } from "styled-system/jsx";
 
 import env from "@revolt/common/lib/env";
-import { useClient } from "@revolt/client";
 import { useModals } from "@revolt/modal";
 import { IconButton, Tooltip } from "@revolt/ui";
 import { Symbol } from "@revolt/ui/components/utils/Symbol";
@@ -278,10 +277,6 @@ async function readMediaDimensions(
   return undefined;
 }
 
-// CUSTOM: チャット添付と同じAutumnバケット("attachments")に直接アップロードする
-// (Composition.tsxのsendStampAttachmentと同じ直接アップロードパターン)
-const AUTUMN_TAG = "attachments";
-
 interface AlbumBlockProps {
   serverId: string;
   album: Album;
@@ -293,7 +288,6 @@ interface AlbumBlockProps {
  */
 function AlbumBlock(props: AlbumBlockProps) {
   const albumApi = useAlbumApi();
-  const client = useClient();
   const { openModal, showError } = useModals();
   const [photos, { refetch }] = createResource(
     () => props.album.id,
@@ -301,6 +295,10 @@ function AlbumBlock(props: AlbumBlockProps) {
   );
   const [isUploading, setIsUploading] = createSignal(false);
 
+  // CUSTOM: アルバムの写真・動画はalbum-api自身が持つ専用MinIOバケットに直接アップロード
+  // する(Autumnは使わない)。Autumnは実際にメッセージ等として「使用済み」にマークされた
+  // アップロードしか取得できない仕様(used_for)があり、メッセージを送信しないアルバムの
+  // 写真は常に404になってしまうため
   async function uploadFile(file: globalThis.File) {
     if (file.size > env.MAX_FILE_SIZE) {
       throw new Error(`ファイルサイズが大きすぎます: ${file.name}`);
@@ -313,29 +311,7 @@ function AlbumBlock(props: AlbumBlockProps) {
         ? "Video"
         : "File";
 
-    const body = new FormData();
-    body.set("file", file, file.name);
-    const [authHeader, authHeaderValue] = client().authenticationHeader;
-    const response = await fetch(`${client().configuration!.features.autumn.url}/attachments`, {
-      method: "POST",
-      body,
-      headers: { [authHeader]: authHeaderValue },
-    });
-
-    if (!response.ok) {
-      throw new Error(`アップロードに失敗しました: ${response.status}`);
-    }
-
-    const { id } = await response.json();
-
-    await albumApi.addPhoto(props.serverId, props.album.id, {
-      autumnId: id,
-      tag: AUTUMN_TAG,
-      filename: file.name,
-      contentType: file.type,
-      metadata: { type, ...dimensions },
-      size: file.size,
-    });
+    await albumApi.addPhoto(props.serverId, props.album.id, file, { type, ...dimensions });
   }
 
   async function onFilesSelected(files: FileList) {

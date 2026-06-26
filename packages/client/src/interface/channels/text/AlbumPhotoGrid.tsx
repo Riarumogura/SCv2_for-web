@@ -1,30 +1,14 @@
 // CUSTOM: Discordの複数画像添付のレイアウト(1枚はそのまま、2枚は横2分割、3枚は左1枚+右2分割、
 // 4枚以上は2x2+残り枚数オーバーレイ)を参考にしたアルバム写真グリッド。
 import { For, Show, createMemo } from "solid-js";
-import { File as StoatFile } from "stoat.js";
 import { styled } from "styled-system/jsx";
 
-import { useClient } from "@revolt/client";
 import { useModals } from "@revolt/modal";
 import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
-import { AlbumPhoto } from "../../../api/album";
+import { AlbumPhoto, useAlbumApi } from "../../../api/album";
 
 const MAX_VISIBLE = 4;
-
-function toStoatFile(client: ReturnType<ReturnType<typeof useClient>>, photo: AlbumPhoto) {
-  return new StoatFile(client, {
-    _id: photo.autumnId,
-    tag: photo.tag,
-    filename: photo.filename,
-    // CUSTOM: バックエンドのAlbumPhotoMetadataはwidth/heightをoptionalにしているが、
-    // Image/Video種別は常にAutumnアップロード時に解決済みのため、stoat.jsのMetadata型と
-    // 構造的に互換である。
-    metadata: photo.metadata as StoatFile["metadata"],
-    content_type: photo.contentType,
-    size: photo.size,
-  });
-}
 
 export interface AlbumPhotoGridProps {
   photos: AlbumPhoto[];
@@ -34,33 +18,50 @@ export interface AlbumPhotoGridProps {
  * アルバム内の写真・動画をDiscord風のグリッドで表示する
  */
 export function AlbumPhotoGrid(props: AlbumPhotoGridProps) {
-  const client = useClient();
+  const albumApi = useAlbumApi();
   const { openModal } = useModals();
 
-  const visibleFiles = createMemo(() =>
-    props.photos.slice(0, MAX_VISIBLE).map((photo) => toStoatFile(client(), photo)),
-  );
+  const visiblePhotos = createMemo(() => props.photos.slice(0, MAX_VISIBLE));
   const remainingCount = createMemo(() => Math.max(0, props.photos.length - MAX_VISIBLE));
 
-  function openPreview(file: StoatFile) {
-    openModal({ type: "image_viewer", file });
+  // CUSTOM: アルバムの写真・動画はAutumnを使わず album-api 専用のMinIOバケットに保存されている
+  // (Autumnはused_for=メッセージ等での実使用が無いアップロードの取得を404で拒否するため)。
+  // stoat.js FileのpreviewUrl/originalUrlはAutumnのURL形式に固定されているため構築できず、
+  // 代わりにimage_viewerモーダルのcustomFile(生URL)を使う
+  function openPreview(photo: AlbumPhoto) {
+    const type = photo.metadata.type === "Video" ? "Video" : "Image";
+    openModal({
+      type: "image_viewer",
+      customFile: {
+        url: albumApi.getPhotoFileUrl(photo.fileId),
+        filename: photo.filename ?? "file",
+        contentType: photo.contentType,
+        size: photo.size,
+        metadata: {
+          type,
+          width: photo.metadata.width ?? 1,
+          height: photo.metadata.height ?? 1,
+        },
+      },
+    });
   }
 
   return (
     <Show when={props.photos.length > 0} fallback={<EmptyHint>写真がまだありません</EmptyHint>}>
-      <Grid data-count={Math.min(visibleFiles().length, MAX_VISIBLE)}>
-        <For each={visibleFiles()}>
-          {(file, index) => (
-            <Cell onClick={() => openPreview(file)}>
+      <Grid data-count={Math.min(visiblePhotos().length, MAX_VISIBLE)}>
+        <For each={visiblePhotos()}>
+          {(photo, index) => (
+            <Cell onClick={() => openPreview(photo)}>
               <Show
-                when={file.metadata.type === "Video"}
-                fallback={<Thumb src={file.previewUrl} loading="lazy" />}
+                when={photo.metadata.type === "Video"}
+                fallback={<Thumb src={albumApi.getPhotoFileUrl(photo.fileId)} loading="lazy" />}
               >
                 <>
-                  {/* CUSTOM: Autumnのpreview URL(/{tag}/{id})は画像のリサイズ用で、動画では
-                      再生できないことがある(チャット添付のAttachment.tsxも動画には常に
-                      originalUrlを使っている)。サムネイルもoriginalUrlを使う */}
-                  <ThumbVideo src={file.originalUrl} preload="metadata" muted />
+                  <ThumbVideo
+                    src={albumApi.getPhotoFileUrl(photo.fileId)}
+                    preload="metadata"
+                    muted
+                  />
                   <PlayIconOverlay>
                     <Symbol size={32}>play_circle</Symbol>
                   </PlayIconOverlay>

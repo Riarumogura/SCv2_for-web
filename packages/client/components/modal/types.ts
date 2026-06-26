@@ -177,6 +177,17 @@ export type Modals =
       embed?: ImageEmbed;
       gif?: VideoEmbed;
       file?: File;
+      // CUSTOM: stoat.js Fileはこのモーダルが使うpreviewUrl/originalUrlをAutumnの
+      // URL形式に固定生成するため、Autumn以外(アルバム機能のMinIO直接配信など)の
+      // ファイルを表示する場合はFileを構築できない。その場合はcustomFileで
+      // 生のURLを直接渡す
+      customFile?: {
+        url: string;
+        filename: string;
+        contentType?: string;
+        size?: number;
+        metadata: { type: "Image" | "Video"; width: number; height: number };
+      };
     }
   | {
       type: "join_server";
