@@ -23,6 +23,10 @@ export type ReminderMinutes = (typeof REMINDER_MINUTES_OPTIONS)[number];
 export const EDIT_PERMISSIONS = ["anyone", "creator_only"] as const;
 export type EditPermission = (typeof EDIT_PERMISSIONS)[number];
 
+// CUSTOM: 該当メンバーが2人以上(または0人)の共有予定を示す固定のグレー表示
+export const GROUP_EVENT_COLOR = "gray" as const;
+export type EventColor = TradeColor | typeof GROUP_EVENT_COLOR;
+
 export interface CalendarEvent {
   id: string;
   serverId: string;
@@ -31,11 +35,14 @@ export interface CalendarEvent {
   location?: string;
   startAt: string;
   endAt: string;
-  // CUSTOM: 予定の色は保存値ではなく、作成者の現在のトレードカラーから
-  // サーバー側で動的に解決された値(常にAPIレスポンスに含まれる)
-  color: TradeColor;
+  // CUSTOM: 予定の色は保存値ではなく、該当メンバーの現在のトレードカラーから
+  // サーバー側で動的に解決された値(常にAPIレスポンスに含まれる)。
+  // 該当メンバーが1人ならそのメンバーのトレードカラー、2人以上(または0人)ならgray。
+  color: EventColor;
   repeat: RepeatOption;
   editPermission: EditPermission;
+  // CUSTOM: 予定に該当する(関係する)メンバー。作成者は常に含まれる。
+  memberIds: string[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -49,6 +56,7 @@ export interface CreateEventRequest {
   endAt: string;
   repeat?: RepeatOption;
   editPermission?: EditPermission;
+  memberIds?: string[];
 }
 
 export type UpdateEventRequest = Partial<CreateEventRequest>;

@@ -29,6 +29,13 @@ export function CalendarTradeColorSettingsModal(
   const myColor = () => assignments()?.find((a) => a.userId === myId)?.color ?? null;
   const takenByOthers = () =>
     new Set(assignments()?.filter((a) => a.userId !== myId).map((a) => a.color) ?? []);
+  // CUSTOM: 「(使用中)」ではなく使用しているユーザー名を表示するため、
+  // 色→ユーザー名のマップを作る(既にメンバーとして読み込まれているユーザーのみ解決可能)
+  const takenByUsername = (color: TradeColor) => {
+    const taken = assignments()?.find((a) => a.color === color && a.userId !== myId);
+    if (!taken) return null;
+    return client().users.get(taken.userId)?.username ?? taken.userId;
+  };
 
   async function selectColor(color: TradeColor) {
     if (color === myColor() || takenByOthers().has(color)) return;
@@ -84,7 +91,11 @@ export function CalendarTradeColorSettingsModal(
               <LegendDot style={{ "background-color": TRADE_COLOR_HEX[color] }} />
               <span>
                 {TRADE_COLOR_LABELS[color]}
-                {takenByOthers().has(color) ? "(使用中)" : myColor() === color ? "(自分)" : ""}
+                {takenByOthers().has(color)
+                  ? `(${takenByUsername(color)})`
+                  : myColor() === color
+                    ? "(自分)"
+                    : ""}
               </span>
             </SwatchLegend>
           )}

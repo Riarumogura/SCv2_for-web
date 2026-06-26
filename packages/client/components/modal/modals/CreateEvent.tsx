@@ -2,7 +2,8 @@
 // CUSTOM: lingui(<Trans>/t)はi18nカタログ未コンパイルのためハッシュ文字列で表示されてしまう
 // (storage系モーダルの既知バグと同種)。この機能では日本語をハードコードして回避する。
 import { createFormControl, createFormGroup } from "solid-forms";
-import { For, Show, createResource } from "solid-js";
+import { For, Show, createResource, createSignal } from "solid-js";
+import { styled } from "styled-system/jsx";
 
 import { useClient } from "@revolt/client";
 import { Column, Dialog, DialogProps, Form2, MenuItem } from "@revolt/ui";
@@ -44,6 +45,23 @@ export function CreateEventModal(
   const myTradeColor = () => tradeColors()?.find((a) => a.userId === myId)?.color ?? null;
   const hasTradeColor = () => tradeColors() !== undefined && myTradeColor() !== null;
 
+  // CUSTOM: 該当するメンバーの選択(作成者は常に含まれるため一覧には出さない)。
+  // 1人(作成者のみ)ならトレードカラー表示、2人以上ならグレーの共有予定になる。
+  const otherMembers = () =>
+    client().serverMembers.filter(
+      (member) => member.id.server === props.serverId && member.id.user !== myId,
+    );
+  const [selectedMemberIds, setSelectedMemberIds] = createSignal<Set<string>>(new Set());
+
+  function toggleMember(userId: string) {
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
   const initialStart = props.initialDate
     ? new Date(props.initialDate)
     : new Date();
@@ -82,6 +100,7 @@ export function CreateEventModal(
         endAt: endAt.toISOString(),
         repeat: group.controls.repeat.value,
         editPermission: group.controls.editPermission.value,
+        memberIds: Array.from(selectedMemberIds()),
       });
 
       if (group.controls.reminder.value !== NO_REMINDER) {
@@ -180,6 +199,29 @@ export function CreateEventModal(
             </For>
           </Form2.Select>
 
+          {/* CUSTOM: 該当するメンバー。2人以上選んだ場合は予定の色がグレーになる */}
+          <div>
+            <MemberPickerLabel>該当するメンバー</MemberPickerLabel>
+            <MemberPickerList>
+              <MemberPickerRow>
+                <input type="checkbox" checked disabled />
+                <span>自分</span>
+              </MemberPickerRow>
+              <For each={otherMembers()}>
+                {(member) => (
+                  <MemberPickerRow>
+                    <input
+                      type="checkbox"
+                      checked={selectedMemberIds().has(member.id.user)}
+                      onChange={() => toggleMember(member.id.user)}
+                    />
+                    <span>{member.user?.username ?? member.id.user}</span>
+                  </MemberPickerRow>
+                )}
+              </For>
+            </MemberPickerList>
+          </div>
+
           <Form2.Select label="リマインダー(アプリ内通知)" control={group.controls.reminder}>
             <MenuItem value={NO_REMINDER}>通知しない</MenuItem>
             <For each={REMINDER_MINUTES_OPTIONS}>
@@ -193,3 +235,34 @@ export function CreateEventModal(
     </Dialog>
   );
 }
+
+const MemberPickerLabel = styled("div", {
+  base: {
+    fontSize: "12px",
+    color: "var(--md-sys-color-on-surface-variant)",
+    marginBottom: "var(--gap-xs)",
+  },
+});
+
+const MemberPickerList = styled("div", {
+  base: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "var(--gap-xs)",
+    maxHeight: "160px",
+    overflowY: "auto",
+    border: "1px solid var(--md-sys-color-outline-variant)",
+    borderRadius: "var(--borderRadius-sm)",
+    padding: "var(--gap-sm)",
+  },
+});
+
+const MemberPickerRow = styled("label", {
+  base: {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--gap-sm)",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+});

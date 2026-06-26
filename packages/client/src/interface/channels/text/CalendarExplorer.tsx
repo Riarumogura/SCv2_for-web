@@ -15,7 +15,7 @@ import { IconButton, Tooltip, useSnackbar } from "@revolt/ui";
 import { Symbol } from "@revolt/ui/components/utils/Symbol";
 
 import { useCalendarApi, CalendarEvent } from "../../../api/calendar";
-import { TRADE_COLOR_HEX, REMINDER_LABELS } from "./calendarColors";
+import { EVENT_COLOR_HEX, REMINDER_LABELS } from "./calendarColors";
 
 // CUSTOM: Web Push未対応のため、パネル表示中のみ定期ポーリングでアプリ内通知を出す
 const REMINDER_POLL_INTERVAL_MS = 30_000;
@@ -57,8 +57,8 @@ export function CalendarExplorer(props: CalendarExplorerProps) {
         title: event.title,
         start: event.startAt,
         end: event.endAt,
-        backgroundColor: TRADE_COLOR_HEX[event.color],
-        borderColor: TRADE_COLOR_HEX[event.color],
+        backgroundColor: EVENT_COLOR_HEX[event.color],
+        borderColor: EVENT_COLOR_HEX[event.color],
       }));
     } catch (error) {
       console.error("予定一覧の取得に失敗しました:", error);
