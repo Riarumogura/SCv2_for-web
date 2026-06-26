@@ -43,11 +43,13 @@ import MdChevronRight from "@material-design-icons/svg/filled/chevron_right.svg?
 import MdSettings from "@material-symbols/svg-400/outlined/settings-fill.svg?component-solid";
 import MdStorage from "@material-symbols/svg-400/outlined/cloud-fill.svg?component-solid";
 import MdCalendar from "@material-symbols/svg-400/outlined/calendar_month-fill.svg?component-solid";
+import MdAlbum from "@material-symbols/svg-400/outlined/photo_library-fill.svg?component-solid";
 import MdMinecraft from "@material-symbols/svg-400/outlined/sports_esports-fill.svg?component-solid";
 
 import { useStorageApi, StorageConfig } from "../../../api/storage";
 import { requestOpenStorage } from "../../../api/storageExplorerSignal";
 import { requestOpenCalendar } from "../../../api/calendarExplorerSignal";
+import { requestOpenAlbum } from "../../../api/albumExplorerSignal";
 import { useMinecraftApi, McServer, MC_STATUS_LABELS } from "../../../api/minecraft";
 import { requestOpenMinecraft } from "../../../api/minecraftExplorerSignal";
 
@@ -103,6 +105,18 @@ type OrderingEvent =
 export const ServerSidebar = (props: Props) => {
   const navigate = useNavigate();
   const { openModal } = useModals();
+  const state = useState();
+
+  // CUSTOM: ストレージ/Minecraftセクションの開閉状態(サーバーごとに記憶、デフォルトは閉)。
+  // カレンダー/アルバムは中に一覧を持たずクリックで直接パネルを開くだけなので開閉状態は不要。
+  const isStorageSectionOpen = () =>
+    state.layout.getSectionState(`sidebar-storage:${props.server.id}`, false);
+  const toggleStorageSection = () =>
+    state.layout.toggleSectionState(`sidebar-storage:${props.server.id}`, false);
+  const isMinecraftSectionOpen = () =>
+    state.layout.getSectionState(`sidebar-minecraft:${props.server.id}`, false);
+  const toggleMinecraftSection = () =>
+    state.layout.toggleSectionState(`sidebar-minecraft:${props.server.id}`, false);
 
   // Users can manage certain parts of the server individually, regardless of their ManageServer Permission
   const canManageServer = () =>
@@ -288,6 +302,11 @@ export const ServerSidebar = (props: Props) => {
     requestOpenCalendar({ serverId: props.server.id });
   };
 
+  // CUSTOM: アルバムを開く
+  const openAlbum = () => {
+    requestOpenAlbum({ serverId: props.server.id });
+  };
+
   // CUSTOM: トレードカラー設定モーダルを開く
   const openTradeColorSettings = () => {
     openModal({
@@ -423,7 +442,7 @@ export const ServerSidebar = (props: Props) => {
       </Switch>
       <div
         use:invisibleScrollable
-        style={{ "flex-grow": 1 }}
+        style={{ "flex-grow": 1, "min-height": 0 }}
         use:floating={props.menuGenerator(props.server)}
       >
         <Draggable
@@ -446,299 +465,263 @@ export const ServerSidebar = (props: Props) => {
             />
           )}
         </Draggable>
+      </div>
 
-        {/* CUSTOM: カレンダーメニュー(ストレージメニューの上に固定表示)。歯車アイコンは
-            同じ枠内の右端に配置する(ネストしたbuttonを避けるためdivをクリック領域にする)。
-            親div(use:floating)がチャンネル/カテゴリ用の右クリックメニューをこのメニュー上でも
-            開いてしまう。use:floatingはcontextmenuをbubbleフェーズで処理するため、
-            onContextMenu(bubbleフェーズ)でのstopPropagationでは止まらない場合があるので、
-            ここではcaptureフェーズのリスナーを直接付けてイベントが親まで届く前に止める */}
-        <CalendarMenuButton
-          onClick={openCalendar}
-          ref={(el) => {
-            el.addEventListener(
-              "contextmenu",
-              (e) => {
-                e.preventDefault();
+      {/* CUSTOM: カレンダー/アルバム/ストレージ/Minecraftのメニューは、チャンネル一覧の
+          スクロールに合わせて流れていかないよう、スクロール領域(上のdiv)の外側に
+          常時表示のフッターとして配置する。この領域自体は`use:floating`配下に無いため、
+          以前必要だった右クリックメニューの伝播ブロック(contextmenu capture)は不要になった */}
+      <FooterMenuList use:invisibleScrollable>
+        <SidebarMenuSection>
+          <SidebarMenuHeader onClick={openCalendar}>
+            <Row align gap="sm">
+              <MdCalendar {...iconSize(16)} />
+              <span style={{ "font-weight": "bold" }}>カレンダー</span>
+            </Row>
+            {/* CUSTOM: IconButton(最小高さ32px)を使うとヘッダーの高さが他の3メニューより
+                大きくなってしまうため、シェブロンと同じ大きさのアイコンを直接クリック領域にする。
+                クリックの伝播を止め、親(カレンダーを開く)が発火しないようにする */}
+            <div
+              onClick={(e) => {
                 e.stopPropagation();
-              },
-              { capture: true },
-            );
-          }}
-        >
-          <Row align gap="sm">
-            <MdCalendar {...iconSize(16)} />
-            <span style={{ "font-weight": "bold" }}>カレンダー</span>
-          </Row>
-          {/* CUSTOM: IconButtonの型はonClickを受け付けないため、divでラップして
-              クリックの伝播を止め、親(カレンダーを開く)が発火しないようにする */}
-          <div onClick={(e) => e.stopPropagation()}>
-            <Tooltip content="トレードカラー設定" placement="top">
-              <IconButton
-                size="xs"
-                variant="standard"
-                onPress={openTradeColorSettings}
-              >
-                <Symbol size={16}>settings</Symbol>
-              </IconButton>
-            </Tooltip>
-          </div>
-        </CalendarMenuButton>
+                openTradeColorSettings();
+              }}
+              style={{ display: "flex", cursor: "pointer" }}
+            >
+              <Tooltip content="トレードカラー設定" placement="top">
+                <Symbol size={16}>edit</Symbol>
+              </Tooltip>
+            </div>
+          </SidebarMenuHeader>
+        </SidebarMenuSection>
 
-        {/* CUSTOM: ストレージメニューセクション */}
-        <StorageSection>
-          <StorageHeader>
+        {/* CUSTOM: アルバムメニュー。カテゴリ作成はアルバムパネル内の検索フォームから
+            行うため、ここには歯車アイコンは置かない */}
+        <SidebarMenuSection>
+          <SidebarMenuHeader onClick={openAlbum}>
+            <Row align gap="sm">
+              <MdAlbum {...iconSize(16)} />
+              <span style={{ "font-weight": "bold" }}>アルバム</span>
+            </Row>
+          </SidebarMenuHeader>
+        </SidebarMenuSection>
+
+        {/* CUSTOM: ストレージメニュー。一覧・容量バー・作成ボタンはクリックで開閉する */}
+        <SidebarMenuSection>
+          <SidebarMenuHeader onClick={toggleStorageSection}>
             <Row align gap="sm">
               <MdStorage {...iconSize(16)} />
               <span style={{ "font-weight": "bold" }}>ストレージ</span>
             </Row>
-            <Tooltip content="新しいストレージを作成" placement="top">
-              <IconButton
-                size="xs"
-                variant="standard"
-                onPress={openCreateStorageModal}
-              >
+            <MdChevronRight {...iconSize(14)} data-open={isStorageSectionOpen()} />
+          </SidebarMenuHeader>
+
+          <Show when={isStorageSectionOpen()}>
+            <SidebarMenuBody>
+              <Show when={serverLimits()}>
+                {(limits) => (
+                  <ServerStorageUsage>
+                    <StorageUsage>
+                      <div
+                        style={{
+                          width: `${Math.min(100, limits().percentage)}%`,
+                          height: "100%",
+                          background:
+                            limits().percentage >= 90
+                              ? "var(--md-sys-color-error)"
+                              : "var(--md-sys-color-primary)",
+                          "border-radius": "1px",
+                        }}
+                      />
+                    </StorageUsage>
+                    <span style={{ "font-size": "11px" }}>
+                      サーバー全体: {formatBytes(limits().used)} / {formatBytes(limits().limit)} (
+                      {limits().percentage}%)
+                    </span>
+                  </ServerStorageUsage>
+                )}
+              </Show>
+
+              <SidebarCreateButton onClick={openCreateStorageModal}>
                 <Symbol size={16}>add</Symbol>
-              </IconButton>
-            </Tooltip>
-          </StorageHeader>
+                新しいストレージを作成
+              </SidebarCreateButton>
 
-          <Show when={serverLimits()}>
-            {(limits) => (
-              <ServerStorageUsage>
-                <StorageUsage>
-                  <div
-                    style={{
-                      width: `${Math.min(100, limits().percentage)}%`,
-                      height: "100%",
-                      background:
-                        limits().percentage >= 90
-                          ? "var(--md-sys-color-error)"
-                          : "var(--md-sys-color-primary)",
-                      "border-radius": "1px",
-                    }}
-                  />
-                </StorageUsage>
-                <span style={{ "font-size": "11px" }}>
-                  サーバー全体: {formatBytes(limits().used)} / {formatBytes(limits().limit)} (
-                  {limits().percentage}%)
-                </span>
-              </ServerStorageUsage>
-            )}
-          </Show>
-
-          <Show
-            when={storages().length > 0}
-            fallback={
-              <StorageEmptyState>
-                <div style={{ "text-align": "center", padding: "var(--gap-md)" }}>
-                  <MdStorage {...iconSize(32)} style={{ opacity: 0.5 }} />
-                  <p style={{ "margin-top": "var(--gap-sm)", "font-size": "12px" }}>
+              <Show
+                when={storages().length > 0}
+                fallback={
+                  <StorageEmptyState>
                     ストレージがありません
-                  </p>
-                  <button
-                    onClick={openCreateStorageModal}
-                    style={{
-                      "margin-top": "var(--gap-sm)",
-                      padding: "var(--gap-xs) var(--gap-sm)",
-                      background: "var(--md-sys-color-primary)",
-                      color: "white",
-                      border: "none",
-                      "border-radius": "var(--borderRadius-sm)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    作成する
-                  </button>
-                </div>
-              </StorageEmptyState>
-            }
-          >
-            <StorageList>
-              {storages().map((storage) => (
-                <StorageItem
-                  onClick={() => openStorage(storage.id)}
-                >
-                  <Row align gap="sm" style={{ "justify-content": "space-between" }}>
-                    <Row align gap="sm" style={{ overflow: "hidden" }}>
-                      <Symbol size={16}>folder</Symbol>
-                      <OverflowingText style={{ "font-size": "13px" }}>
-                        {storage.name}
-                      </OverflowingText>
-                    </Row>
-                    <StorageItemActions
-                      onClick={(e: MouseEvent) => e.stopPropagation()}
+                  </StorageEmptyState>
+                }
+              >
+                <StorageList>
+                  {storages().map((storage) => (
+                    <StorageItem
+                      onClick={() => openStorage(storage.id)}
                     >
-                      <IconButton
-                        size="xs"
-                        variant="standard"
-                        onPress={() => openEditStorageModal(storage)}
-                      >
-                        <Symbol size={14}>edit</Symbol>
-                      </IconButton>
-                      <IconButton
-                        size="xs"
-                        variant="standard"
-                        onPress={() => openDeleteStorageModal(storage)}
-                      >
-                        <Symbol size={14}>delete</Symbol>
-                      </IconButton>
-                    </StorageItemActions>
-                  </Row>
-                  <StorageUsage>
-                    <div
-                      style={{
-                        width: `${Math.min(100, (storage.usedSize / storage.sizeLimit) * 100)}%`,
-                        height: "2px",
-                        background: "var(--md-sys-color-primary)",
-                        "border-radius": "1px",
-                      }}
-                    />
-                  </StorageUsage>
-                  <span style={{ "font-size": "11px", opacity: 0.7 }}>
-                    {formatBytes(storage.usedSize)} / {formatBytes(storage.sizeLimit)}
-                  </span>
-                </StorageItem>
-              ))}
-            </StorageList>
+                      <Row align gap="sm" style={{ "justify-content": "space-between" }}>
+                        <Row align gap="sm" style={{ overflow: "hidden" }}>
+                          <Symbol size={16}>folder</Symbol>
+                          <OverflowingText style={{ "font-size": "13px" }}>
+                            {storage.name}
+                          </OverflowingText>
+                        </Row>
+                        <StorageItemActions
+                          onClick={(e: MouseEvent) => e.stopPropagation()}
+                        >
+                          <IconButton
+                            size="xs"
+                            variant="standard"
+                            onPress={() => openEditStorageModal(storage)}
+                          >
+                            <Symbol size={14}>edit</Symbol>
+                          </IconButton>
+                          <IconButton
+                            size="xs"
+                            variant="standard"
+                            onPress={() => openDeleteStorageModal(storage)}
+                          >
+                            <Symbol size={14}>delete</Symbol>
+                          </IconButton>
+                        </StorageItemActions>
+                      </Row>
+                      <StorageUsage>
+                        <div
+                          style={{
+                            width: `${Math.min(100, (storage.usedSize / storage.sizeLimit) * 100)}%`,
+                            height: "2px",
+                            background: "var(--md-sys-color-primary)",
+                            "border-radius": "1px",
+                          }}
+                        />
+                      </StorageUsage>
+                      <span style={{ "font-size": "11px", opacity: 0.7 }}>
+                        {formatBytes(storage.usedSize)} / {formatBytes(storage.sizeLimit)}
+                      </span>
+                    </StorageItem>
+                  ))}
+                </StorageList>
+              </Show>
+            </SidebarMenuBody>
           </Show>
-        </StorageSection>
+        </SidebarMenuSection>
 
-        {/* CUSTOM: Minecraftサーバー管理メニューセクション。一覧表示は全メンバー可、
-            作成・起動・停止・削除のボタンはcanManageServer()を持つ場合のみ表示する */}
-        <StorageSection>
-          <StorageHeader>
+        {/* CUSTOM: Minecraftサーバー管理メニュー。一覧表示・作成ボタンはクリックで開閉する。
+            一覧表示は全メンバー可だが、作成・起動・停止・削除はManageServer権限を持つ場合のみ */}
+        <SidebarMenuSection>
+          <SidebarMenuHeader onClick={toggleMinecraftSection}>
             <Row align gap="sm">
               <MdMinecraft {...iconSize(16)} />
               <span style={{ "font-weight": "bold" }}>Minecraft</span>
             </Row>
-            <Show when={canManageServer()}>
-              <Tooltip content="新しいMinecraftサーバーを作成" placement="top">
-                <IconButton
-                  size="xs"
-                  variant="standard"
-                  onPress={openCreateMinecraftServerModal}
-                >
-                  <Symbol size={16}>add</Symbol>
-                </IconButton>
-              </Tooltip>
-            </Show>
-          </StorageHeader>
+            <MdChevronRight {...iconSize(14)} data-open={isMinecraftSectionOpen()} />
+          </SidebarMenuHeader>
 
-          <Show
-            when={mcServers().length > 0}
-            fallback={
-              <StorageEmptyState>
-                <div style={{ "text-align": "center", padding: "var(--gap-md)" }}>
-                  <MdMinecraft {...iconSize(32)} style={{ opacity: 0.5 }} />
-                  <p style={{ "margin-top": "var(--gap-sm)", "font-size": "12px" }}>
+          <Show when={isMinecraftSectionOpen()}>
+            <SidebarMenuBody>
+              <Show when={canManageServer()}>
+                <SidebarCreateButton onClick={openCreateMinecraftServerModal}>
+                  <Symbol size={16}>add</Symbol>
+                  新しいMinecraftサーバーを作成
+                </SidebarCreateButton>
+              </Show>
+
+              <Show
+                when={mcServers().length > 0}
+                fallback={
+                  <StorageEmptyState>
                     {mcLoading() ? "読み込み中..." : "Minecraftサーバーがありません"}
-                  </p>
-                  <Show when={canManageServer()}>
-                    <button
-                      onClick={openCreateMinecraftServerModal}
-                      style={{
-                        "margin-top": "var(--gap-sm)",
-                        padding: "var(--gap-xs) var(--gap-sm)",
-                        background: "var(--md-sys-color-primary)",
-                        color: "white",
-                        border: "none",
-                        "border-radius": "var(--borderRadius-sm)",
-                        cursor: "pointer",
-                      }}
+                  </StorageEmptyState>
+                }
+              >
+                <StorageList>
+                  {mcServers().map((server) => (
+                    <StorageItem
+                      onClick={() =>
+                        server.status === "PENDING_JAR_SELECTION"
+                          ? openSelectMinecraftJarModal(server)
+                          : openMinecraft()
+                      }
                     >
-                      作成する
-                    </button>
-                  </Show>
-                </div>
-              </StorageEmptyState>
-            }
-          >
-            <StorageList>
-              {mcServers().map((server) => (
-                <StorageItem
-                  onClick={() =>
-                    server.status === "PENDING_JAR_SELECTION"
-                      ? openSelectMinecraftJarModal(server)
-                      : openMinecraft()
-                  }
-                >
-                  <Row align gap="sm" style={{ "justify-content": "space-between" }}>
-                    <Row align gap="sm" style={{ overflow: "hidden" }}>
-                      <Symbol size={16}>
-                        {server.status === "RUNNING"
-                          ? "play_circle"
-                          : server.status === "PENDING_JAR_SELECTION"
-                            ? "help"
-                            : "stop_circle"}
-                      </Symbol>
-                      <OverflowingText style={{ "font-size": "13px" }}>
-                        {server.name}
-                      </OverflowingText>
-                    </Row>
-                    <StorageItemActions onClick={(e: MouseEvent) => e.stopPropagation()}>
-                      <Show when={canManageServer()}>
-                        <Show
-                          when={server.status === "PENDING_JAR_SELECTION"}
-                          fallback={
+                      <Row align gap="sm" style={{ "justify-content": "space-between" }}>
+                        <Row align gap="sm" style={{ overflow: "hidden" }}>
+                          <Symbol size={16}>
+                            {server.status === "RUNNING"
+                              ? "play_circle"
+                              : server.status === "PENDING_JAR_SELECTION"
+                                ? "help"
+                                : "stop_circle"}
+                          </Symbol>
+                          <OverflowingText style={{ "font-size": "13px" }}>
+                            {server.name}
+                          </OverflowingText>
+                        </Row>
+                        <StorageItemActions onClick={(e: MouseEvent) => e.stopPropagation()}>
+                          <Show when={canManageServer()}>
                             <Show
-                              when={server.status === "RUNNING" || server.status === "STARTING"}
+                              when={server.status === "PENDING_JAR_SELECTION"}
                               fallback={
-                                <Tooltip content="起動" placement="top">
-                                  <IconButton
-                                    size="xs"
-                                    variant="standard"
-                                    isDisabled={mcBusyIds().has(server.mcId)}
-                                    onPress={() => startMcServer(server)}
-                                  >
-                                    <Symbol size={14}>play_arrow</Symbol>
-                                  </IconButton>
-                                </Tooltip>
+                                <Show
+                                  when={server.status === "RUNNING" || server.status === "STARTING"}
+                                  fallback={
+                                    <Tooltip content="起動" placement="top">
+                                      <IconButton
+                                        size="xs"
+                                        variant="standard"
+                                        isDisabled={mcBusyIds().has(server.mcId)}
+                                        onPress={() => startMcServer(server)}
+                                      >
+                                        <Symbol size={14}>play_arrow</Symbol>
+                                      </IconButton>
+                                    </Tooltip>
+                                  }
+                                >
+                                  <Tooltip content="停止" placement="top">
+                                    <IconButton
+                                      size="xs"
+                                      variant="standard"
+                                      isDisabled={mcBusyIds().has(server.mcId)}
+                                      onPress={() => stopMcServer(server)}
+                                    >
+                                      <Symbol size={14}>stop</Symbol>
+                                    </IconButton>
+                                  </Tooltip>
+                                </Show>
                               }
                             >
-                              <Tooltip content="停止" placement="top">
+                              <Tooltip content="起動するjarファイルを選択" placement="top">
                                 <IconButton
                                   size="xs"
                                   variant="standard"
-                                  isDisabled={mcBusyIds().has(server.mcId)}
-                                  onPress={() => stopMcServer(server)}
+                                  onPress={() => openSelectMinecraftJarModal(server)}
                                 >
-                                  <Symbol size={14}>stop</Symbol>
+                                  <Symbol size={14}>list</Symbol>
                                 </IconButton>
                               </Tooltip>
                             </Show>
-                          }
-                        >
-                          <Tooltip content="起動するjarファイルを選択" placement="top">
                             <IconButton
                               size="xs"
                               variant="standard"
-                              onPress={() => openSelectMinecraftJarModal(server)}
+                              onPress={() => openDeleteMinecraftServerModal(server)}
                             >
-                              <Symbol size={14}>list</Symbol>
+                              <Symbol size={14}>delete</Symbol>
                             </IconButton>
-                          </Tooltip>
-                        </Show>
-                        <IconButton
-                          size="xs"
-                          variant="standard"
-                          onPress={() => openDeleteMinecraftServerModal(server)}
-                        >
-                          <Symbol size={14}>delete</Symbol>
-                        </IconButton>
-                      </Show>
-                    </StorageItemActions>
-                  </Row>
-                  <span style={{ "font-size": "11px", opacity: 0.7 }}>
-                    {MC_STATUS_LABELS[server.status]} ・ {server.type} {server.version} ・
-                    ポート{server.port}
-                  </span>
-                </StorageItem>
-              ))}
-            </StorageList>
+                          </Show>
+                        </StorageItemActions>
+                      </Row>
+                      <span style={{ "font-size": "11px", opacity: 0.7 }}>
+                        {MC_STATUS_LABELS[server.status]} ・ {server.type} {server.version} ・
+                        ポート{server.port}
+                      </span>
+                    </StorageItem>
+                  ))}
+                </StorageList>
+              </Show>
+            </SidebarMenuBody>
           </Show>
-        </StorageSection>
-      </div>
+        </SidebarMenuSection>
+      </FooterMenuList>
     </SidebarBase>
   );
 };
@@ -1077,21 +1060,42 @@ const ChannelIcon = styled("img", {
   },
 });
 
-// CUSTOM: カレンダーメニューボタンのスタイル(ストレージセクションと統一感のある見た目)。
-// 歯車アイコンも同じ枠内に収めるため、ボタンではなくdivをクリック領域として使う
-// (button要素の中にIconButtonのbuttonをネストできないため)
-const CalendarMenuButton = styled("div", {
+// CUSTOM: カレンダー/アルバム/ストレージ/Minecraftのメニューをまとめて、チャンネル一覧の
+// スクロールとは独立した「常時表示のフッター」として配置するための領域。展開状態が
+// 重なって伸びてもサイドバー全体からはみ出さないよう、自身の高さを上限付きで内部スクロールする
+const FooterMenuList = styled("div", {
+  base: {
+    flexShrink: 0,
+    maxHeight: "50%",
+    overflowY: "auto",
+    paddingBottom: "var(--gap-md)",
+  },
+});
+
+// CUSTOM: カレンダー/アルバム/ストレージ/Minecraft共通のメニュー枠。見た目を統一するため
+// 4機能すべてがこの箱(SidebarMenuSection)+クリック可能なヘッダー(SidebarMenuHeader)
+// の組み合わせを使う。一覧を持つストレージ/Minecraftだけがヘッダークリックで開閉する
+const SidebarMenuSection = styled("div", {
+  base: {
+    marginTop: "var(--gap-lg)",
+    borderRadius: "var(--borderRadius-sm)",
+    background: "var(--md-sys-color-surface-container-low)",
+    border: "1px solid var(--md-sys-color-outline-variant)",
+    overflow: "hidden",
+  },
+});
+
+// CUSTOM: クリック可能なヘッダー行。右端に開閉用シェブロン(MdChevronRight,
+// data-open='true'の時だけ90度回転)や設定ボタン等を置く。歯車等のIconButtonは
+// ボタンの中にbuttonをネストできないため、divをクリック領域として使う
+const SidebarMenuHeader = styled("div", {
   base: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "var(--gap-xs)",
     width: "100%",
-    marginTop: "var(--gap-lg)",
     padding: "var(--gap-sm)",
-    borderRadius: "var(--borderRadius-sm)",
-    background: "var(--md-sys-color-surface-container-low)",
-    border: "1px solid var(--md-sys-color-outline-variant)",
     cursor: "pointer",
     transition: "var(--transitions-fast) background",
     color: "inherit",
@@ -1101,27 +1105,44 @@ const CalendarMenuButton = styled("div", {
     "&:hover": {
       background: "var(--md-sys-color-surface-container-highest)",
     },
+
+    "& svg": {
+      transition: "var(--transitions-fast) transform",
+    },
+    "& svg[data-open='true']": {
+      transform: "rotateZ(90deg)",
+    },
   },
 });
 
-// CUSTOM: ストレージセクションのスタイル
-const StorageSection = styled("div", {
-  base: {
-    marginTop: "var(--gap-lg)",
-    padding: "var(--gap-sm)",
-    borderRadius: "var(--borderRadius-sm)",
-    background: "var(--md-sys-color-surface-container-low)",
-    border: "1px solid var(--md-sys-color-outline-variant)",
-  },
-});
-
-const StorageHeader = styled("div", {
+// CUSTOM: 開閉時に表示される本体(一覧・容量バー・作成ボタン等)
+const SidebarMenuBody = styled("div", {
   base: {
     display: "flex",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    gap: "var(--gap-xs)",
+    padding: "0 var(--gap-sm) var(--gap-sm)",
+  },
+});
+
+// CUSTOM: 一覧の有無に関わらず常に表示する「作成」ボタン(本体の最上部に置く)
+const SidebarCreateButton = styled("button", {
+  base: {
+    display: "flex",
     alignItems: "center",
+    gap: "var(--gap-xs)",
     padding: "var(--gap-xs) var(--gap-sm)",
-    marginBottom: "var(--gap-sm)",
+    borderRadius: "var(--borderRadius-sm)",
+    border: "1px dashed var(--md-sys-color-outline-variant)",
+    background: "transparent",
+    color: "var(--md-sys-color-on-surface-variant)",
+    font: "inherit",
+    fontSize: "13px",
+    cursor: "pointer",
+
+    "&:hover": {
+      background: "var(--md-sys-color-surface-container-highest)",
+    },
   },
 });
 
@@ -1129,6 +1150,7 @@ const StorageEmptyState = styled("div", {
   base: {
     padding: "var(--gap-md)",
     textAlign: "center",
+    fontSize: "12px",
     color: "var(--md-sys-color-on-surface-variant)",
   },
 });

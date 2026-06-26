@@ -77,6 +77,10 @@ import { CreateEventModal } from "./modals/CreateEvent";
 import { EditEventModal } from "./modals/EditEvent";
 import { DeleteEventModal } from "./modals/DeleteEvent";
 import { CalendarTradeColorSettingsModal } from "./modals/CalendarTradeColorSettings";
+import { CreateAlbumModal } from "./modals/CreateAlbum";
+import { EditAlbumModal } from "./modals/EditAlbum";
+import { DeleteAlbumModal } from "./modals/DeleteAlbum";
+import { CreateAlbumCategoryModal } from "./modals/CreateAlbumCategory";
 
 /**
  * Render the modal
@@ -226,6 +230,14 @@ export function RenderModal(props: ActiveModal & { onClose: () => void }) {
       return <DeleteEventModal {...modalProps} />;
     case "calendar_trade_color_settings":
       return <CalendarTradeColorSettingsModal {...modalProps} />;
+    case "create_album":
+      return <CreateAlbumModal {...modalProps} />;
+    case "edit_album":
+      return <EditAlbumModal {...modalProps} />;
+    case "delete_album":
+      return <DeleteAlbumModal {...modalProps} />;
+    case "create_album_category":
+      return <CreateAlbumCategoryModal {...modalProps} />;
     case "storage_preview":
       return <StoragePreviewModal {...modalProps} />;
     case "create_stamp":

@@ -43,6 +43,10 @@ import {
   pendingCalendarOpen,
 } from "../../../api/calendarExplorerSignal";
 import {
+  consumePendingAlbumOpen,
+  pendingAlbumOpen,
+} from "../../../api/albumExplorerSignal";
+import {
   consumePendingMinecraftOpen,
   pendingMinecraftOpen,
 } from "../../../api/minecraftExplorerSignal";
@@ -52,6 +56,7 @@ import { MemberSidebar } from "./MemberSidebar";
 import { TextSearchSidebar } from "./TextSearchSidebar";
 import { StorageExplorer } from "./StorageExplorer";
 import { CalendarExplorer } from "./CalendarExplorer";
+import { AlbumExplorer } from "./AlbumExplorer";
 import { MinecraftExplorer } from "./MinecraftExplorer";
 
 /**
@@ -71,6 +76,9 @@ export type SidebarState =
     }
   | {
       state: "calendar";
+    }
+  | {
+      state: "album";
     }
   | {
       state: "minecraft";
@@ -210,6 +218,39 @@ export function TextChannel(props: ChannelPageProps) {
     window.removeEventListener("mouseup", onCalendarResizeUp);
   });
 
+  // CUSTOM: アルバムパネルの幅をユーザーがドラッグで調整できるようにする(カレンダーと同パターン)。
+  // 「画面右半分程度」という要件のため、デフォルト幅はカレンダーよりやや広めにする
+  const [albumWidth, setAlbumWidth] = createSignal(760);
+  let resizingAlbum = false;
+  let albumResizeStartX = 0;
+  let albumResizeStartWidth = 0;
+
+  function onAlbumResizeMove(e: MouseEvent) {
+    if (!resizingAlbum) return;
+    const delta = albumResizeStartX - e.clientX;
+    setAlbumWidth(Math.min(1000, Math.max(360, albumResizeStartWidth + delta)));
+  }
+
+  function onAlbumResizeUp() {
+    resizingAlbum = false;
+    window.removeEventListener("mousemove", onAlbumResizeMove);
+    window.removeEventListener("mouseup", onAlbumResizeUp);
+  }
+
+  function onAlbumResizeDown(e: MouseEvent) {
+    e.preventDefault();
+    resizingAlbum = true;
+    albumResizeStartX = e.clientX;
+    albumResizeStartWidth = albumWidth();
+    window.addEventListener("mousemove", onAlbumResizeMove);
+    window.addEventListener("mouseup", onAlbumResizeUp);
+  }
+
+  onCleanup(() => {
+    window.removeEventListener("mousemove", onAlbumResizeMove);
+    window.removeEventListener("mouseup", onAlbumResizeUp);
+  });
+
   // todo: in the future maybe persist per ID?
   createEffect(
     on(
@@ -233,6 +274,15 @@ export function TextChannel(props: ChannelPageProps) {
     if (request && request.serverId === props.channel.serverId) {
       setSidebarState({ state: "calendar" });
       consumePendingCalendarOpen();
+    }
+  });
+
+  // CUSTOM: ServerSidebarのアルバムメニュークリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    const request = pendingAlbumOpen();
+    if (request && request.serverId === props.channel.serverId) {
+      setSidebarState({ state: "album" });
+      consumePendingAlbumOpen();
     }
   });
 
@@ -318,23 +368,31 @@ export function TextChannel(props: ChannelPageProps) {
               class: sidebar(),
             }}
             style={{
-              // CUSTOM: カレンダーは月表示等を表示するためデフォルトの360pxでは狭すぎるので、
-              // ユーザーがドラッグで調整できる幅(calendarWidth)を使う。Minecraftパネルは
+              // CUSTOM: カレンダー/アルバムは月表示・写真グリッド等を表示するためデフォルトの
+              // 360pxでは狭すぎるので、ユーザーがドラッグで調整できる幅を使う。Minecraftパネルは
               // コンソールログを読みやすくするため固定で480pxにする
               width:
                 sidebarState().state === "calendar"
                   ? `${calendarWidth()}px`
-                  : sidebarState().state === "minecraft"
-                    ? "480px"
-                    : sidebarState().state !== "default"
-                      ? "360px"
-                      : "",
-              position: sidebarState().state === "calendar" ? "relative" : undefined,
+                  : sidebarState().state === "album"
+                    ? `${albumWidth()}px`
+                    : sidebarState().state === "minecraft"
+                      ? "480px"
+                      : sidebarState().state !== "default"
+                        ? "360px"
+                        : "",
+              position:
+                sidebarState().state === "calendar" || sidebarState().state === "album"
+                  ? "relative"
+                  : undefined,
             }}
           >
-            {/* CUSTOM: カレンダーパネルの左端をドラッグして幅を調整するハンドル */}
+            {/* CUSTOM: カレンダー/アルバムパネルの左端をドラッグして幅を調整するハンドル */}
             <Show when={sidebarState().state === "calendar"}>
               <ResizeHandle onMouseDown={onCalendarResizeDown} />
+            </Show>
+            <Show when={sidebarState().state === "album"}>
+              <ResizeHandle onMouseDown={onAlbumResizeDown} />
             </Show>
             <Switch
               fallback={
@@ -423,6 +481,35 @@ export function TextChannel(props: ChannelPageProps) {
                     </Tooltip>
                   </SidebarHeaderRow>
                   <CalendarExplorer serverId={props.channel.serverId} />
+                </WideSidebarContainer>
+              </Match>
+              <Match when={sidebarState().state === "album"}>
+                {/* CUSTOM: WideSidebarContainerは幅360px固定だが、アルバムは外側のスクロール
+                    コンテナ側でalbumWidthに広げているため、幅100%で追従させる(カレンダーと同パターン) */}
+                <WideSidebarContainer
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    "flex-direction": "column",
+                  }}
+                >
+                  <SidebarHeaderRow>
+                    <Text class="label" size="large">
+                      アルバム
+                    </Text>
+                    {/* CUSTOM: アルバムを閉じてチャットのみの表示に戻すボタン */}
+                    <Tooltip content="アルバムを閉じる" placement="top">
+                      <IconButton
+                        size="xs"
+                        variant="standard"
+                        onPress={() => setSidebarState({ state: "default" })}
+                      >
+                        <Symbol size={16}>close</Symbol>
+                      </IconButton>
+                    </Tooltip>
+                  </SidebarHeaderRow>
+                  <AlbumExplorer serverId={props.channel.serverId} />
                 </WideSidebarContainer>
               </Match>
               <Match when={sidebarState().state === "minecraft"}>

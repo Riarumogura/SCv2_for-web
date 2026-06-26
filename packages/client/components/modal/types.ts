@@ -28,6 +28,7 @@ import { ScreenShareQualityName } from "@revolt/state/stores/Voice";
 import type { ChangelogResponse } from "./modals/Changelog";
 import type { StorageConfig } from "../../src/api/storage";
 import type { CalendarEvent } from "../../src/api/calendar";
+import type { Album, AlbumCategory } from "../../src/api/album";
 import type { Stamp } from "../../src/api/stamp";
 
 export type Modals =
@@ -460,4 +461,29 @@ export type Modals =
       type: "calendar_trade_color_settings";
       serverId: string;
       onChanged?: () => void;
+    }
+  | {
+      type: "create_album";
+      serverId: string;
+      initialDate?: string;
+      onCreated?: (album: Album) => void;
+    }
+  | {
+      type: "edit_album";
+      serverId: string;
+      album: Album;
+      onUpdated?: () => void;
+      onDeleted?: () => void;
+    }
+  | {
+      type: "delete_album";
+      serverId: string;
+      albumId: string;
+      albumTitle: string;
+      onDeleted?: () => void;
+    }
+  | {
+      type: "create_album_category";
+      serverId: string;
+      onCreated?: (category: AlbumCategory) => void;
     };
