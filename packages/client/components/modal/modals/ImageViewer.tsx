@@ -143,6 +143,24 @@ export function ImageViewerModal(
                 </Bar>
               </Relative>
               <Switch>
+                {/* CUSTOM: props.fileはImage種別だけでなくVideo種別(アルバム機能の動画等)も
+                    取りうる。チャット添付では動画はモーダルを経由せず常にインライン<video controls>
+                    で再生されるため、このモーダルにはVideo用の分岐が無かった(<img>に動画URLを
+                    渡しても再生できず無反応になる)。Attachment.tsxと同じ判定で<video controls>を
+                    使うよう分岐を追加する */}
+                <Match when={props.file?.metadata.type === "Video"}>
+                  {/* CUSTOM: 動画はPanzoom(拡大縮小・ドラッグ)を適用しない。refをPanzoom用の
+                      setRefに渡すと、ネイティブの再生/シーク操作とドラッグ判定が競合するため */}
+                  <Video
+                    controls
+                    preload="metadata"
+                    style={{
+                      "aspect-ratio": `${(props.file!.metadata as { width: number }).width}/${(props.file!.metadata as { height: number }).height}`,
+                    }}
+                    src={props.file!.originalUrl}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Match>
                 <Match when={props.file}>
                   <Image
                     ref={setRef}

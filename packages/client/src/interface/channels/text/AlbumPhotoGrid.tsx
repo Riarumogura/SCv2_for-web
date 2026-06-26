@@ -57,7 +57,10 @@ export function AlbumPhotoGrid(props: AlbumPhotoGridProps) {
                 fallback={<Thumb src={file.previewUrl} loading="lazy" />}
               >
                 <>
-                  <ThumbVideo src={file.previewUrl} preload="metadata" muted />
+                  {/* CUSTOM: Autumnのpreview URL(/{tag}/{id})は画像のリサイズ用で、動画では
+                      再生できないことがある(チャット添付のAttachment.tsxも動画には常に
+                      originalUrlを使っている)。サムネイルもoriginalUrlを使う */}
+                  <ThumbVideo src={file.originalUrl} preload="metadata" muted />
                   <PlayIconOverlay>
                     <Symbol size={32}>play_circle</Symbol>
                   </PlayIconOverlay>
