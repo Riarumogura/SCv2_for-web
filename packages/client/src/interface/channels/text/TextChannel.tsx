@@ -35,17 +35,13 @@ import { ChannelHeader } from "../ChannelHeader";
 import { ChannelPageProps } from "../ChannelPage";
 
 import {
-  consumePendingStorageOpen,
-  pendingStorageOpen,
-} from "../../../api/storageExplorerSignal";
+  consumePendingAlbumOpen,
+  pendingAlbumOpen,
+} from "../../../api/albumExplorerSignal";
 import {
   consumePendingCalendarOpen,
   pendingCalendarOpen,
 } from "../../../api/calendarExplorerSignal";
-import {
-  consumePendingAlbumOpen,
-  pendingAlbumOpen,
-} from "../../../api/albumExplorerSignal";
 import {
   consumePendingGameClipsOpen,
   pendingGameClipsOpen,
@@ -54,15 +50,23 @@ import {
   consumePendingMinecraftOpen,
   pendingMinecraftOpen,
 } from "../../../api/minecraftExplorerSignal";
+import {
+  consumePendingStorageOpen,
+  pendingStorageOpen,
+} from "../../../api/storageExplorerSignal";
+import {
+  consumePendingSearchOpen,
+  pendingSearchOpen,
+} from "../../../api/textSearchSignal";
 
-import { MessageComposition } from "./Composition";
-import { MemberSidebar } from "./MemberSidebar";
-import { TextSearchSidebar } from "./TextSearchSidebar";
-import { StorageExplorer } from "./StorageExplorer";
-import { CalendarExplorer } from "./CalendarExplorer";
 import { AlbumExplorer } from "./AlbumExplorer";
+import { CalendarExplorer } from "./CalendarExplorer";
+import { MessageComposition } from "./Composition";
 import { GameClipsExplorer } from "./GameClipsExplorer";
+import { MemberSidebar } from "./MemberSidebar";
 import { MinecraftExplorer } from "./MinecraftExplorer";
+import { StorageExplorer } from "./StorageExplorer";
+import { TextSearchSidebar } from "./TextSearchSidebar";
 
 /**
  * State of the channel sidebar
@@ -268,7 +272,9 @@ export function TextChannel(props: ChannelPageProps) {
   function onGameClipsResizeMove(e: MouseEvent) {
     if (!resizingGameClips) return;
     const delta = gameClipsResizeStartX - e.clientX;
-    setGameClipsWidth(Math.min(1000, Math.max(360, gameClipsResizeStartWidth + delta)));
+    setGameClipsWidth(
+      Math.min(1000, Math.max(360, gameClipsResizeStartWidth + delta)),
+    );
   }
 
   function onGameClipsResizeUp() {
@@ -298,6 +304,14 @@ export function TextChannel(props: ChannelPageProps) {
       () => setSidebarState({ state: "default" }),
     ),
   );
+
+  // CUSTOM: AppRailのSearchアイコンクリックを受け取り、サイドバーを切り替える
+  createEffect(() => {
+    if (pendingSearchOpen()) {
+      setSidebarState({ state: "search", query: "" });
+      consumePendingSearchOpen();
+    }
+  });
 
   // CUSTOM: ServerSidebarのストレージ一覧クリックを受け取り、サイドバーを切り替える
   createEffect(() => {
@@ -506,7 +520,9 @@ export function TextChannel(props: ChannelPageProps) {
                   {/* CUSTOM: ストレージエクスプローラーコンポーネントをここに追加 */}
                   <StorageExplorer
                     serverId={props.channel.serverId}
-                    storageId={(sidebarState() as { storageId: string }).storageId}
+                    storageId={
+                      (sidebarState() as { storageId: string }).storageId
+                    }
                   />
                 </WideSidebarContainer>
               </Match>

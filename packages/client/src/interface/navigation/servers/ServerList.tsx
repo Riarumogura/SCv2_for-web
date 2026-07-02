@@ -9,19 +9,30 @@ import { useClient } from "@revolt/client";
 import { CONFIGURATION } from "@revolt/common";
 import { KeybindAction, createKeybind } from "@revolt/keybinds";
 import { useModals } from "@revolt/modal";
-import { useNavigate } from "@revolt/routing";
+import { useNavigate, useSmartParams } from "@revolt/routing";
 import { useState } from "@revolt/state";
 import { Avatar, Column, Text, Time, Unreads, UserStatus } from "@revolt/ui";
 
 import MdAdd from "@material-design-icons/svg/filled/add.svg?component-solid";
+import MdChat from "@material-design-icons/svg/filled/chat.svg?component-solid";
 import MdExplore from "@material-design-icons/svg/filled/explore.svg?component-solid";
 import MdHome from "@material-design-icons/svg/filled/home.svg?component-solid";
+import MdNotifications from "@material-design-icons/svg/filled/notifications.svg?component-solid";
+import MdSearch from "@material-design-icons/svg/filled/search.svg?component-solid";
 import MdSettings from "@material-design-icons/svg/filled/settings.svg?component-solid";
 
 import { Tooltip } from "../../../../components/ui/components/floating";
 import { Draggable } from "../../../../components/ui/components/utils/Draggable";
+import { requestOpenSearch } from "../../../api/textSearchSignal";
 
 import { UserMenu } from "./UserMenu";
+
+/**
+ * Which top-level rail section is currently active.
+ * "server" means a workspace (server) is selected; disambiguating which one
+ * is done separately via `selectedServer`.
+ */
+export type RailSection = "home" | "dms" | "activity" | "server";
 
 interface Props {
   /**
@@ -36,7 +47,7 @@ interface Props {
   setServerOrder: (ids: string[]) => void;
 
   /**
-   * Unread conversations list
+   * Unread conversations list (used for the DM rail badge)
    */
   unreadConversations: Channel[];
 
@@ -51,6 +62,11 @@ interface Props {
   selectedServer: Accessor<string | undefined>;
 
   /**
+   * Currently active rail section (Home / DMs / Activity / a server)
+   */
+  activeSection: Accessor<RailSection>;
+
+  /**
    * Create or join server
    */
   onCreateOrJoinServer(): void;
@@ -62,12 +78,18 @@ interface Props {
 }
 
 /**
- * Server list sidebar component
+ * App rail: fixed Home/DM/Activity/Search entries, followed by the
+ * server (workspace) switcher.
+ *
+ * Rail items are defined as data (icon/label/href/badge) rather than
+ * hardcoded markup so the same definitions can later be reused to render
+ * a mobile drawer/sheet (Phase 4) without duplicating logic.
  */
 export const ServerList = (props: Props) => {
   const state = useState();
   const client = useClient();
   const navigate = useNavigate();
+  const smartParams = useSmartParams();
   const { openModal } = useModals();
 
   const navigateServer = (byOffset: number) => {
@@ -111,37 +133,104 @@ export const ServerList = (props: Props) => {
       .length;
   });
 
+  const dmNotifications = createMemo(() => props.unreadConversations.length);
+
+  // Realtime, non-persisted aggregate across all servers (Phase 1 "simple
+  // feed" — no read-state management, see ActivitySidebar)
+  const activityNotifications = createMemo(() =>
+    props.orderedServers.reduce(
+      (sum, server) => sum + server.mentions.length,
+      0,
+    ),
+  );
+
+  /**
+   * Fixed, global rail entries (Home / DM / Activity)
+   */
+  const railItems: Array<{
+    key: RailSection;
+    href: string;
+    tooltip: string;
+    icon: JSX.Element;
+    notifications: Accessor<number>;
+  }> = [
+    {
+      key: "home",
+      href: "/app",
+      tooltip: "Home",
+      icon: <MdHome />,
+      notifications: homeNotifications,
+    },
+    {
+      key: "dms",
+      href: "/dms",
+      tooltip: "Direct Messages",
+      icon: <MdChat />,
+      notifications: dmNotifications,
+    },
+    {
+      key: "activity",
+      href: "/activity",
+      tooltip: "Activity",
+      icon: <MdNotifications />,
+      notifications: activityNotifications,
+    },
+  ];
+
   // Ref for floating menu
   const [menuButton, setMenuButton] = createSignal<HTMLDivElement>();
 
   return (
     <ServerListBase>
       <div use:invisibleScrollable={{ direction: "y", class: listBase() }}>
+        <For each={railItems}>
+          {(item) => (
+            <a
+              class={entryContainer({
+                indicator:
+                  props.activeSection() === item.key ? "selected" : undefined,
+              })}
+              href={item.href}
+              use:floating={{
+                tooltip: {
+                  content: item.tooltip,
+                  placement: "right",
+                },
+              }}
+            >
+              <Avatar
+                size={42}
+                fallback={item.icon}
+                holepunch={item.notifications() ? "top-right" : undefined}
+                overlay={
+                  <Show when={item.notifications()}>
+                    <Unreads.Graphic
+                      unread={item.notifications() !== 0}
+                      count={item.notifications()}
+                    />
+                  </Show>
+                }
+              />
+            </a>
+          )}
+        </For>
         <a
-          class={entryContainer({
-            indicator: !props.selectedServer() ? "selected" : undefined,
-          })}
-          href="/app"
+          class={entryContainer()}
+          onClick={() => {
+            // Only meaningful when a channel is currently open; there is
+            // nothing to search otherwise.
+            if (smartParams().channelId) {
+              requestOpenSearch();
+            }
+          }}
           use:floating={{
             tooltip: {
-              content: `You have ${homeNotifications()} pending friend requests.`,
+              content: "Search",
               placement: "right",
             },
           }}
         >
-          <Avatar
-            size={42}
-            fallback={<MdHome />}
-            holepunch={homeNotifications() ? "top-right" : undefined}
-            overlay={
-              <Show when={homeNotifications()}>
-                <Unreads.Graphic
-                  unread={homeNotifications() !== 0}
-                  count={homeNotifications()}
-                />
-              </Show>
-            }
-          />
+          <Avatar size={42} fallback={<MdSearch />} />
         </a>
         <Tooltip
           placement="right"
@@ -166,46 +255,6 @@ export const ServerList = (props: Props) => {
           </a>
           <UserMenu anchor={menuButton} />
         </Tooltip>
-        <For each={props.unreadConversations.slice(0, 9)}>
-          {(conversation) => (
-            <Tooltip placement="right" content={conversation.displayName}>
-              <a
-                class={entryContainer()}
-                use:floating={props.menuGenerator(conversation)}
-                href={`/channel/${conversation.id}`}
-              >
-                <Avatar
-                  size={42}
-                  // TODO: fix this
-                  src={conversation.iconURL}
-                  holepunch={conversation.unread ? "top-right" : "none"}
-                  overlay={
-                    <>
-                      <Show when={conversation.unread}>
-                        <Unreads.Graphic
-                          count={conversation.mentions?.size ?? 0}
-                          unread
-                        />
-                      </Show>
-                    </>
-                  }
-                  fallback={
-                    conversation.name ?? conversation.recipient?.username
-                  }
-                  interactive
-                />
-              </a>
-            </Tooltip>
-          )}
-        </For>
-        <Show when={props.unreadConversations.length > 9}>
-          <a class={entryContainer()} href={`/`}>
-            <Avatar
-              size={42}
-              fallback={<>+{props.unreadConversations.length - 9}</>}
-            />
-          </a>
-        </Show>
         <LineDivider />
         <Draggable
           type="servers"
@@ -248,6 +297,7 @@ export const ServerList = (props: Props) => {
               <div
                 class={entryContainer({
                   indicator:
+                    props.activeSection() === "server" &&
                     props.selectedServer() === entry.item.id
                       ? "selected"
                       : entry.item.unread &&
@@ -328,6 +378,8 @@ const ServerListBase = styled("div", {
   base: {
     display: "flex",
     flexDirection: "column",
+    flexShrink: 0,
+    width: "var(--layout-width-app-rail)",
 
     fill: "var(--md-sys-color-on-surface)",
   },
@@ -347,7 +399,7 @@ const listBase = cva({
  */
 const entryContainer = cva({
   base: {
-    width: "56px",
+    width: "var(--layout-width-app-rail)",
     height: "56px",
     position: "relative",
     display: "grid",

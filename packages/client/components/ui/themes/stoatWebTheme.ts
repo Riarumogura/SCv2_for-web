@@ -111,6 +111,7 @@ const themeConstants = {
   },
   layout: {
     "width-channel-sidebar": "248px",
+    "width-app-rail": "56px",
     "width-user-context-menu-truncate": "300px",
     "height-message-box": "32vh",
   },

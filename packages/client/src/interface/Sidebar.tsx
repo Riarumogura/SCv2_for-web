@@ -13,7 +13,14 @@ import { useLocation, useParams, useSmartParams } from "@revolt/routing";
 import { useState } from "@revolt/state";
 import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
 
-import { HomeSidebar, ServerList, ServerSidebar } from "./navigation";
+import type { RailSection } from "./navigation";
+import {
+  ActivitySidebar,
+  DMSidebar,
+  HomeSidebar,
+  ServerList,
+  ServerSidebar,
+} from "./navigation";
 
 /**
  * Left-most channel navigation sidebar
@@ -31,6 +38,26 @@ export const Sidebar = (props: {
 
   const params = useParams<{ server: string }>();
   const location = useLocation();
+  const smartParams = useSmartParams();
+
+  /**
+   * Which rail section (Home / DMs / Activity / a server) is active,
+   * derived from the current route.
+   *
+   * A bare `/channel/:id` route (no server) is a DM being viewed, so it
+   * belongs to the "dms" section rather than "home" — see the matching
+   * fix in Layout.ts#setLastActivePath.
+   */
+  const activeSection = createMemo((): RailSection => {
+    if (params.server) return "server";
+    if (location.pathname.startsWith("/activity")) return "activity";
+    if (
+      location.pathname.startsWith("/dms") ||
+      (smartParams().channelId && !smartParams().serverId)
+    )
+      return "dms";
+    return "home";
+  });
 
   return (
     <div style={{ display: "flex", "flex-shrink": 0 }}>
@@ -45,6 +72,7 @@ export const Sidebar = (props: {
           )}
         user={user()!}
         selectedServer={() => params.server}
+        activeSection={activeSection}
         onCreateOrJoinServer={() =>
           openModal({
             type: "create_or_join_server",
@@ -60,8 +88,14 @@ export const Sidebar = (props: {
         }
       >
         <Switch fallback={<Home />}>
-          <Match when={params.server}>
+          <Match when={activeSection() === "server"}>
             <Server />
+          </Match>
+          <Match when={activeSection() === "dms"}>
+            <DMs />
+          </Match>
+          <Match when={activeSection() === "activity"}>
+            <Activity />
           </Match>
         </Switch>
       </Show>
@@ -75,14 +109,9 @@ export const Sidebar = (props: {
 const Home: Component = () => {
   const params = useSmartParams();
   const client = useClient();
-  const state = useState();
-  const conversations = createMemo(() =>
-    state.ordering.orderedConversations(client()),
-  );
 
   return (
     <HomeSidebar
-      conversations={conversations}
       channelId={params().channelId}
       openSavedNotes={(navigate) => {
         // Check whether the saved messages channel exists already
@@ -108,6 +137,27 @@ const Home: Component = () => {
     />
   );
 };
+
+/**
+ * Render sidebar for direct messages
+ */
+const DMs: Component = () => {
+  const params = useSmartParams();
+  const client = useClient();
+  const state = useState();
+  const conversations = createMemo(() =>
+    state.ordering.orderedConversations(client()),
+  );
+
+  return (
+    <DMSidebar conversations={conversations} channelId={params().channelId} />
+  );
+};
+
+/**
+ * Render sidebar for cross-server activity
+ */
+const Activity: Component = () => <ActivitySidebar />;
 
 /**
  * Render sidebar for a server

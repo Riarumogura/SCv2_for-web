@@ -71,6 +71,8 @@ export class Layout extends AbstractStore<"layout", TypeLayout> {
       activePath: {
         home: "/",
         discover: "/discover/servers",
+        dms: "/dms",
+        activity: "/activity",
       },
       openSections: {},
     };
@@ -134,6 +136,20 @@ export class Layout extends AbstractStore<"layout", TypeLayout> {
   }
 
   /**
+   * Get the last active DMs path in the app
+   */
+  getLastActiveDMsPath() {
+    return this.get().activePath["dms"];
+  }
+
+  /**
+   * Get the last active Activity path in the app
+   */
+  getLastActiveActivityPath() {
+    return this.get().activePath["activity"];
+  }
+
+  /**
    * Get the last active server path
    */
   getLastActiveServerPath(serverId: string) {
@@ -155,9 +171,18 @@ export class Layout extends AbstractStore<"layout", TypeLayout> {
       return;
 
     const params = paramsFromPathname(pathname);
+    // Non-server routes used to be bucketed entirely under "home", which meant
+    // opening a DM (a bare /channel/:id route with no serverId) or visiting
+    // /activity would overwrite the "last active path" for Home. Now that Home,
+    // DMs and Activity are separate rail entries, each needs its own bucket so
+    // switching between them restores the right place.
     const section = pathname.startsWith("/discover")
       ? "discover"
-      : (params.serverId ?? "home");
+      : pathname.startsWith("/activity")
+        ? "activity"
+        : pathname.startsWith("/dms") || (params.channelId && !params.serverId)
+          ? "dms"
+          : (params.serverId ?? "home");
     this.set("activeInterface", section);
     this.set("activePath", section, pathname);
   }
