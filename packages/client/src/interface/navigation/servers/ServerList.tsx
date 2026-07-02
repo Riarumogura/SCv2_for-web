@@ -374,11 +374,13 @@ const entryContainer = cva({
       selected: {
         "&:before": {
           height: "32px !important",
+          background: "var(--brand-primary)",
         },
       },
       alert: {
         "&:before": {
           height: "8px",
+          background: "var(--brand-primary)",
         },
       },
     },

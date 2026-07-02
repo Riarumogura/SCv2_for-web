@@ -17,6 +17,11 @@ export interface DialogAction {
   text: JSX.Element;
   onClick?: () => void | Promise<unknown> | true | false;
   isDisabled?: boolean;
+
+  /**
+   * Style the action as the dialog's primary call-to-action
+   */
+  variant?: "text" | "brand";
 }
 
 type Props = DialogProps & {
@@ -83,7 +88,7 @@ export function Dialog(props: Props) {
                     <For each={props.actions}>
                       {(action) => (
                         <Button
-                          variant="text"
+                          variant={action.variant ?? "text"}
                           size="small"
                           onPress={() => {
                             if (action.isDisabled) return;

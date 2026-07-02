@@ -43,6 +43,7 @@ export function AddFriendModal(
         { text: <Trans>Close</Trans> },
         {
           text: <Trans>Send Request</Trans>,
+          variant: "brand",
           onClick: () => {
             onSubmit();
             return false;

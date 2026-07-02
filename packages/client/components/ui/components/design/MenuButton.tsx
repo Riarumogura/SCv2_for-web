@@ -153,8 +153,8 @@ const base = cva({
         background: "transparent",
       },
       selected: {
-        "--color": "var(--md-sys-color-on-primary-container)",
-        background: "var(--md-sys-color-primary-container)",
+        "--color": "var(--brand-on-primary)",
+        background: "var(--brand-primary)",
       },
     },
   },

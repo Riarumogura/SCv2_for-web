@@ -21,6 +21,7 @@ export function CreateOrJoinServerModal(
       actions={[
         {
           text: "Create",
+          variant: "brand",
           onClick: () => {
             openModal({
               type: "create_server",
@@ -30,6 +31,7 @@ export function CreateOrJoinServerModal(
         },
         {
           text: "Join",
+          variant: "brand",
           onClick: () => {
             openModal({ type: "join_server", client: props.client });
           },

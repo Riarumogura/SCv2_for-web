@@ -58,6 +58,7 @@ export function JoinServerModal(
         { text: <Trans>Close</Trans> },
         {
           text: <Trans>Join</Trans>,
+          variant: "brand",
           onClick: () => {
             onSubmit();
             return false;

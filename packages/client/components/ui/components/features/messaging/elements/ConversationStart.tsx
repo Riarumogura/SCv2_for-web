@@ -20,7 +20,7 @@ export function ConversationStart(props: Props) {
   return (
     <Base>
       <Show when={props.channel.type !== "SavedMessages"}>
-        <Text class="headline" size="large">
+        <Text class="display" size="brand-sm">
           {props.channel.name ?? props.channel.recipient?.username}
         </Text>
       </Show>

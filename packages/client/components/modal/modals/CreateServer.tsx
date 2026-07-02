@@ -46,6 +46,7 @@ export function CreateServerModal(
         { text: <Trans>Close</Trans> },
         {
           text: <Trans>Create</Trans>,
+          variant: "brand",
           onClick: () => {
             onSubmit();
             return false;
