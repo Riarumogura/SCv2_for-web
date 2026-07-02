@@ -43,9 +43,57 @@ export const typography = cva({
       large: {},
       medium: {},
       small: {},
+
+      // brand display sizes — see .company/engineering/docs/design.md
+      "brand-xl": {},
+      "brand-lg": {},
+      "brand-md": {},
+      "brand-sm": {},
     },
   },
   compoundVariants: [
+    // Brand display sizes (heavy, wide headlines — Discord-style brand voice)
+    {
+      class: "display",
+      size: "brand-xl",
+      css: {
+        lineHeight: "1",
+        fontSize: "5.125rem",
+        letterSpacing: "-0.01em",
+        fontWeight: 800,
+      },
+    },
+    {
+      class: "display",
+      size: "brand-lg",
+      css: {
+        lineHeight: "1.05",
+        fontSize: "3.875rem",
+        letterSpacing: "-0.01em",
+        fontWeight: 800,
+      },
+    },
+    {
+      class: "display",
+      size: "brand-md",
+      css: {
+        lineHeight: "1.05",
+        fontSize: "3.5rem",
+        letterSpacing: "-0.01em",
+        fontWeight: 700,
+      },
+    },
+    {
+      class: "display",
+      size: "brand-sm",
+      css: {
+        lineHeight: "1.15",
+        fontSize: "2.25rem",
+        letterSpacing: "-0.005em",
+        fontWeight: 700,
+      },
+    },
+
     // Values derived from:
     // https://m3.material.io/styles/typography/type-scale-tokens
     // https://www.mdui.org/en/docs/2/styles/design-tokens

@@ -29,12 +29,27 @@ export function createStoatWebVariables(theme: SelectedTheme) {
     "--transitions-fast": ".1s ease-in-out",
     "--transitions-medium": ".2s ease",
 
-    // brand
+    // brand (presence)
     "--brand-presence-online": "#3ABF7E",
     "--brand-presence-idle": "#F39F00",
     "--brand-presence-busy": "#F84848",
     "--brand-presence-focus": "#4799F0",
     "--brand-presence-invisible": "#A5A5A5",
+
+    // brand (identity — see .company/engineering/docs/design.md)
+    "--brand-primary": "#5865F2",
+    "--brand-on-primary": "#FFFFFF",
+    "--brand-green": "#35ED7E",
+    "--brand-on-green": "#000000",
+    "--brand-magenta": "#EC48BD",
+    "--brand-on-magenta": "#FFFFFF",
+    "--brand-link": "#00B0F4",
+    "--brand-canvas": "#0A0D3A",
+    "--brand-surface-indigo": "#1E2353",
+    "--brand-surface-onyx": "#23272A",
+    "--brand-surface-black": "#000000",
+    "--brand-gradient-mesh":
+      "linear-gradient(120deg, #0A0D3A 0%, #5865F2 25%, #4A2E8F 50%, #EC48BD 75%, #0A0D3A 100%)",
 
     // font
     "--fonts-primary": `"${theme.interfaceFont}", "Inter", sans-serif`,
@@ -64,15 +79,17 @@ const themeConstants = {
   borderRadius: {
     // Material 3 Expressive ten-level shape scale
     // https://m3.material.io/styles/shape/corner-radius-scale
+    // xs/sm/md nudged to match the brand shape scale (see design.md)
     none: "0px",
-    xs: "4px",
-    sm: "8px",
-    md: "12px",
+    xs: "6px",
+    sm: "12px",
+    md: "14px",
     lg: "16px",
     li: "20px",
     xl: "28px",
     xli: "32px",
     xxl: "48px",
+    jumbo: "120px",
     full: "calc(infinity * 1px)",
     circle: "100%",
   },

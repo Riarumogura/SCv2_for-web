@@ -2,6 +2,7 @@ import { BiLogosGithub } from "solid-icons/bi";
 import { JSX } from "solid-js";
 
 import { Trans } from "@lingui-solid/solid/macro";
+import { defineKeyframes } from "@pandacss/dev";
 import { styled } from "styled-system/jsx";
 
 import { Titlebar } from "@revolt/app/interface/desktop/Titlebar";
@@ -15,6 +16,19 @@ import { FlowBase } from "./flows/Flow";
 import bluesky from "./flows/bluesky.svg";
 
 /**
+ * Slow-moving brand mesh — the app's one deliberate "marketing moment".
+ * See .company/engineering/docs/design.md for the reasoning behind
+ * scoping this treatment to the auth page only.
+ */
+const meshShift = defineKeyframes({
+  shift: {
+    "0%": { backgroundPosition: "0% 50%" },
+    "50%": { backgroundPosition: "100% 50%" },
+    "100%": { backgroundPosition: "0% 50%" },
+  },
+});
+
+/**
  * Authentication page layout
  */
 const Base = styled("div", {
@@ -26,12 +40,13 @@ const Base = styled("div", {
     userSelect: "none",
     overflowY: "scroll",
 
-    color: "var(--md-sys-color-on-surface)",
-    background: "var(--md-sys-color-surface)",
-    // background: `var(--url)`,
-    // backgroundPosition: "center",
-    // backgroundRepeat: "no-repeat",
-    // backgroundSize: "cover",
+    color: "#ffffff",
+    background: "var(--brand-gradient-mesh)",
+    backgroundSize: "400% 400%",
+    animationName: meshShift,
+    animationDuration: "18s",
+    animationTimingFunction: "ease",
+    animationIterationCount: "infinite",
 
     display: "flex",
     flexDirection: "column",
@@ -103,7 +118,7 @@ const Bullet = styled("div", {
   base: {
     height: "5px",
     width: "5px",
-    background: "grey",
+    background: "rgba(255, 255, 255, 0.6)",
     borderRadius: "50%",
 
     md: {

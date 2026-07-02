@@ -23,7 +23,7 @@ export const FlowBase = styled("div", {
     maxWidth: "360px",
     maxHeight: "600px",
     padding: "45px 40px",
-    borderRadius: "32px",
+    borderRadius: "40px",
     marginTop: "20px",
     marginBottom: "20px",
     justifySelf: "center",
@@ -108,7 +108,7 @@ export function FlowTitle(props: {
         <Show when={props.emoji === "mail"}>
           <Mail src={envelope} />
         </Show>
-        <Text class="title" size="large">
+        <Text class="display" size="brand-sm">
           {props.children}
         </Text>
       </Row>

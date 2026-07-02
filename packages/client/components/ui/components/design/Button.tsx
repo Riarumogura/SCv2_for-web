@@ -208,6 +208,17 @@ const button = cva({
         "--color": "var(--md-sys-color-on-error)",
       },
 
+      // Brand CTAs — always the fixed Discord-style brand colour,
+      // regardless of the user's chosen accent. See design.md.
+      brand: {
+        background: "var(--brand-primary)",
+        "--color": "var(--brand-on-primary)",
+      },
+      brandGreen: {
+        background: "var(--brand-green)",
+        "--color": "var(--brand-on-green)",
+      },
+
       // Old entries:
 
       /**
@@ -381,7 +392,7 @@ const button = cva({
   compoundVariants: [
     // disabled styles
     {
-      variant: ["elevated", "filled", "tonal", "outlined"],
+      variant: ["elevated", "filled", "tonal", "outlined", "brand", "brandGreen"],
       disabled: true,
       css: {
         "--color":
